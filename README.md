@@ -3,8 +3,8 @@
 
 # 使用技術
 現在、使用する予定の技術は下記のとおりです。
-- Docker
-- Docker compose
+- Docker (コンテナ仮想化プラットフォーム)
+- Docker compose (コンテナ管理ツール)
 - Golang (バックエンド)
 - Next.js (フロントエンド)
 - Daisy UI (CSSフレームワーク)
