@@ -1,65 +1,56 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Image from "next/image";
 
 export default function Home() {
+
+  const [lastUpdateTime, lastUpdateTime_updater] = useState("00:00");
+  
+  const GetTime = () => {
+    let d = new Date();
+    let [hour, minute] = [d.getHours(), d.getMinutes()]
+    lastUpdateTime_updater(`${hour}:${minute}`);
+  }
+
+  useEffect(() => {
+    GetTime();
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="w-full max-w-sm md:max-w-2xl mx-auto flex flex-col gap-4 mt-8 md:mt-12 px-4">
+
+        <div className="card w-full bg-base-100 shadow-2xl border-t-4 border-primary">
+            <div className="card-body items-center text-center p-6 md:p-12">
+                <div className="badge badge-secondary badge-lg font-bold mb-2 shadow-sm md:p-4 md:text-lg">営業中</div>
+                
+                <h2 className="card-title text-2xl md:text-4xl mb-4 font-bold">H301</h2>
+
+                <div className="stat p-0 my-4 md:my-8">
+                    <div className="stat-title text-base md:text-xl font-bold">現在の待ち時間</div>
+                    <div className="stat-value text-7xl md:text-[9rem] text-primary my-2 drop-shadow-sm transition-all">
+                        15<span className="text-3xl md:text-5xl text-base-content"> 分</span>
+                    </div>
+                    <div className="stat-desc text-sm md:text-base mt-2 font-medium text-base-content/70">最終更新: {lastUpdateTime}</div>
+                </div>
+
+                <div className="card-actions mt-6 w-full md:w-2/3 mx-auto">
+                    <button 
+                        className="btn btn-primary btn-block text-lg md:text-xl md:h-16 font-bold shadow-md hover:scale-[1.02] transition-transform" 
+                    >
+                        最新の状態に更新
+                    </button>
+                </div>
+            </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="alert alert-info shadow-sm mt-4 text-xs md:text-sm font-bold justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>実際の待ち時間と多少異なる場合があります。</span>
         </div>
-      </main>
+
     </div>
   );
 }
