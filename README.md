@@ -8,6 +8,7 @@
 - Golang (バックエンド)
 - Next.js (フロントエンド)
 - Daisy UI (CSSフレームワーク)
+- Bootstrap (CSSフレームワーク)
 - Sqlite (データベース)
 
 # ライセンス
