@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Q-Tracker | 管理者コンソール</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body { background-color: #141416; color: #ececed; }
+    .card-custom { background-color: #1e1e22; border: 1px solid #2d2d30; border-radius: 12px; }
+    .table-dark { --bs-table-bg: #1e1e22; }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar navbar-dark bg-dark border-bottom border-secondary shadow-sm">
+    <div class="container-fluid px-4">
+      <span class="navbar-brand mb-0 h1 font-monospace tracking-wide">
+        Q-Tracker <span class="text-info">|</span> Admin Console
+      </span>
+      <span class="badge bg-danger" id="ws-status">WebSocket 切断中</span>
+    </div>
+  </nav>
+
+  <div class="container my-5" style="max-width: 1000px;">
+    
+    <div class="row g-4 mb-5">
+      
+      <div class="col-md-5">
+        <div class="card card-custom p-4 h-100 shadow-sm">
+          <h5 class="text-secondary small font-weight-bold tracking-wider mb-3">ROOM STATUS</h5>
+          <div class="d-flex align-items-baseline mb-2">
+            <span class="display-4 fw-light text-info font-mono" id="current-number">--</span>
+            <span class="text-secondary ms-2">番が案内中</span>
+          </div>
+          <div class="text-muted small">
+            部屋の状態: <span class="fw-bold" id="room-state">不明</span>
+          </div>
+          <div class="text-muted small mt-1">
+            現在の待ち時間: <span class="fw-bold text-warning" id="wait-time">-- 分</span>（待機列: <span id="wait-groups">--</span> 組）
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-7">
+        <div class="card card-custom p-4 h-100 shadow-sm d-flex flex-column justify-content-between gap-3">
+          
+          <div>
+            <h5 class="text-secondary small font-weight-bold tracking-wider mb-3">ROOM CONTROLS</h5>
+            <div class="row g-2">
+              <div class="col-6">
+                <button id="btn-enter" class="btn btn-outline-info w-full py-2.5 fw-bold d-flex align-items-center justify-content-center gap-2">
+                  <i class="bi bi-door-open-fill"></i> グループ入場
+                </button>
+              </div>
+              <div class="col-6">
+                <button id="btn-leave" class="btn btn-outline-danger w-full py-2.5 fw-bold d-flex align-items-center justify-content-center gap-2">
+                  <i class="bi bi-door-closed-fill"></i> グループ退場
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <hr class="border-secondary my-1">
+
+          {/* 💡 追加機能: 待機列手動登録セクション */}
+          <div>
+            <h5 class="text-secondary small font-weight-bold tracking-wider mb-2">MANUAL REGISTRATION（手動登録）</h5>
+            <div class="input-group">
+              <span class="input-group-text bg-dark text-secondary border-secondary"><i class="bi bi-person-plus-fill"></i></span>
+              <input type="text" id="manual-user-name" class="form-control bg-dark text-white border-secondary" placeholder="ゲスト名（空白でも可）" aria-label="Username">
+              <button id="btn-manual-register" class="btn btn-info fw-bold text-dark px-4" type="button">整理券を発行</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card card-custom p-4 shadow-sm">
+      <h5 class="text-secondary small font-weight-bold tracking-wider mb-3">WAITING QUEUE（待機列一覧）</h5>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col" style="width: 15%">番号</th>
+              <th scope="col" style="width: 30%">名前</th>
+              <th scope="col" style="width: 20%">ステータス</th>
+              <th scope="col" style="width: 35%" class="text-end">アクション</th>
+            </tr>
+          </thead>
+          <tbody id="queue-table-body">
+            <tr>
+              <td colspan="4" class="text-center text-muted py-4">データ受信待ち...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let ws;
+
+    function connectWebSocket() {
+      const wsUri = `ws://${window.location.host}/api/admin/ws`;
+      
+      // Goサーバー起動後にここのコメントアウトを外して結合してね！
+      /*
+      ws = new WebSocket(wsUri);
+      
+      ws.onopen = () => {
+        const statusBadge = document.getElementById('ws-status');
+        statusBadge.innerText = "WebSocket 接続中";
+        statusBadge.className = "badge bg-success";
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        updateAdminConsole(data);
+      };
+
+      ws.onclose = () => {
+        const statusBadge = document.getElementById('ws-status');
+        statusBadge.innerText = "WebSocket 切断";
+        statusBadge.className = "badge bg-danger";
+        setTimeout(connectWebSocket, 5000); // 5秒後に再接続
+      };
+      */
+    }
+
+    // Goからデータを受信した時のテーブル反映処理
+    // Go側から流れてくる ticket オブジェクトの配列を想定
+    function updateAdminConsole(data) {
+      document.getElementById('current-number').innerText = data.currentNumber;
+      document.getElementById('room-state').innerText = data.isActive ? "稼働中 (ACTIVE)" : "空室 (EMPTY)";
+      document.getElementById('wait-time').innerText = `${data.waitTime} 分`;
+      document.getElementById('wait-groups').innerText = data.waitingGroups;
+
+      const tbody = document.getElementById('queue-table-body');
+      tbody.innerHTML = ''; 
+
+      if (!data.tickets || data.tickets.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">現在、待機中のグループはありません。</td></tr>`;
+        return;
+      }
+
+      data.tickets.forEach(ticket => {
+        const row = tbody.insertRow();
+        
+        // 💡 状態変化に応じたボタン操作（手動キャンセル・不在処理）を動的に生成
+        row.innerHTML = `
+          <td class="font-mono fw-bold text-info">${ticket.number} 番</td>
+          <td class="text-zinc-300">${ticket.name || '---'}</td>
+          <td><span class="badge bg-warning text-dark">待機中</span></td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-warning me-1fw-medium" onclick="handleAbsent(${ticket.number})">
+              <i class="bi bi-bell-slash"></i> 不在
+            </button>
+            <button class="btn btn-sm btn-outline-danger fw-medium" onclick="handleCancel(${ticket.number})">
+              <i class="bi bi-trash3"></i> 取消
+            </button>
+          </td>
+        `;
+      });
+    }
+
+    // ─── API送信アクション群 ───
+
+    // 1. ルームコントロール
+    document.getElementById('btn-enter').addEventListener('click', () => {
+      fetch('/api/admin/room/enter', { method: 'POST' });
+    });
+
+    document.getElementById('btn-leave').addEventListener('click', () => {
+      fetch('/api/admin/room/leave', { method: 'POST' });
+    });
+
+    // 2. 💡 待機列手動登録
+    document.getElementById('btn-manual-register').addEventListener('click', () => {
+      const nameInput = document.getElementById('manual-user-name');
+      const name = nameInput.value.trim();
+      
+      fetch('/api/admin/queue/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name })
+      }).then(res => {
+        if (res.ok) nameInput.value = ''; // 成功したら入力欄をクリア
+      });
+    });
+
+    // 3. 💡 ユーザー手動キャンセル（受付側からの取消）
+    function handleCancel(ticketNumber) {
+      if (confirm(`${ticketNumber}番の整理券を取り消しますか？`)) {
+        fetch(`/api/admin/queue/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ number: ticketNumber })
+        });
+      }
+    }
+
+    // 4. 💡 ユーザー主導キャンセル（呼び出し応答不可 / 不在処理）
+    function handleAbsent(ticketNumber) {
+      fetch(`/api/admin/queue/absent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number: ticketNumber })
+      });
+    }
+
+    // 初期接続の開始
+    connectWebSocket();
+  </script>
+</body>
+</html>

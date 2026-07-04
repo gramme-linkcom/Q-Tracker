@@ -30,7 +30,16 @@ export default function RootLayout({
     >
       <head>
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <footer className="bg-[#141416] text-center pb-3 text-[#242428]">
+          <span className="flex w-auto items-center justify-center">
+            <p className="my-4">developed by 9ramme</p>
+            <p>©2026 9ramme.net</p>
+          </span>
+          <p>OSS Project <a href="https://github.com/gramme-linkcom/KitaF_Q-Tracker">Q-Tracker</a></p>
+        </footer>
+      </body>
     </html>
   );
 }
