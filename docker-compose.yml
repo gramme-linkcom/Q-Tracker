@@ -10,6 +10,6 @@ services:
     environment:
       - PUSH_PRIVATE_KEY=your_super_secret_private_key_here
       - PUSH_PUBLIC_KEY=your_public_key_here
-      - ADMIN_CONSOLE_PSW=
+      - ADMIN_CONSOLE_PSW= #admin console password here
     container_name: q_tracker
     restart: unless-stopped

@@ -103,8 +103,8 @@ export default function Home() {
       const data = await bookTicket("");
       await handleRefresh(data.bookingNumber);
       setBookingNumber(data.bookingNumber);
-
-      setShowBookingData(true)
+      localStorage.setItem('booking_number', `${data.bookingNumber}`);
+      setShowBookingData(true);
       setIsBooked(true);
       setShowToast(true);
       setIsModalOpen(false);
@@ -122,6 +122,7 @@ export default function Home() {
 const confirmCancelBooking = async () => {
   try {
     await cancelTicket(bookingNumber);
+    localStorage.removeItem('booking_number');
     setIsBooked(false);
     setIsCancelModalOpen(false);
     setShowBookingData(false);
@@ -157,11 +158,22 @@ const confirmCancelBooking = async () => {
 
   useEffect(() => {
     const loadData = async () => {
-      handleRefresh();
+      const localNumber = localStorage.getItem('booking_number');
+      
+      if (localNumber != null) {
+        const num = Number(localNumber);
+        setBookingNumber(num);
+        setShowBookingData(true);
+        setIsBooked(true);
+        await handleRefresh(num);
+      } else {
+        await handleRefresh();
+      }
       updateTime();
     };
+
     loadData();
-    setShowIosModal(DetectIosBrowser())
+    setShowIosModal(DetectIosBrowser());
     if ("Notification" in window && Notification.permission === "denied") {
       setIsNotificationDenied(true);
     }

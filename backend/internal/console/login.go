@@ -48,12 +48,19 @@ func AdminConsoleHandler(env *api.APIEnv, w http.ResponseWriter, r *http.Request
 		if password == os.Getenv("ADMIN_CONSOLE_PSW") {
 			sessionID := generateSecureToken()
 
-			env.SessionMu.Lock()
-			if env.AdminSessions == nil {
-				env.AdminSessions = make(map[string]bool)
-			}
-			env.AdminSessions[sessionID] = true
-			env.SessionMu.Unlock()
+            env.SessionMu.Lock()
+            if env.AdminSessions == nil {
+                env.AdminSessions = make(map[string]bool)
+            }
+
+            if len(env.AdminSessions) > 0 {
+                env.SessionMu.Unlock()
+                http.Error(w, "Other administrator is already logged in. Access Denied.", http.StatusForbidden)
+                return
+            }
+
+            env.AdminSessions[sessionID] = true
+            env.SessionMu.Unlock()
 
 			cookie := &http.Cookie{
 				Name:     "admin_session",

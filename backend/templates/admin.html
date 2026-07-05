@@ -60,6 +60,13 @@
             line-height: 1;
         }
 
+        .custom-toast {
+            background-color: rgba(26, 27, 32, 0.95) !important;
+            border: 1px solid #2d2f36 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+        }
+
         footer {
             border-top: 1px solid #2d2f36;
             background-color: #1a1b20;
@@ -76,8 +83,13 @@
                 <h1 class="h3 fw-bold mb-1">Q-Tracker</h1>
                 <p class="sub-title-text small mb-0">統合管理コンソール // リアルタイム同期システム</p>
             </div>
-            <div id="connection-badge" class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-50 px-3 py-2 rounded-pill">
-                <i class="bi bi-circle-fill me-2 small"></i>LIVE CONNECTED
+            <div class="d-flex align-items-center gap-2">
+                <button id="reconnect-btn" class="btn btn-sm btn-outline-danger d-none" onclick="connectWS()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>再接続する
+                </button>
+                <div id="connection-badge" class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-50 px-3 py-2 rounded-pill">
+                    <i class="bi bi-circle-fill me-2 small"></i>CONNECTING...
+                </div>
             </div>
         </header>
 
@@ -258,6 +270,8 @@
         </div>
     </div>
 
+    <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1085;"></div>
+
     <footer class="w-100 text-center py-3 mt-5">
         <div class="container-fluid">
             <span>©2026 9ramme.net</span>
@@ -271,33 +285,65 @@
             const form = document.getElementById("configForm");
             const modal = document.getElementById("advancedConfigModal");
             form.appendChild(modal);
+            
+            // ページロード時に最初の接続をキック
+            connectWS();
         });
 
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        const ws = new WebSocket(wsProtocol + window.location.host + '/console/ws');
+        // ★ グローバル変数としてWebSocketインスタンスを保持
+        let ws = null;
 
-        ws.onopen = () => { 
-            console.log('[WS] 管理コンソール接続成功'); 
-            document.getElementById('connection-badge').className = "badge bg-success bg-opacity-10 text-success border border-success border-opacity-50 px-3 py-2 rounded-pill";
-            document.getElementById('connection-badge').innerHTML = '<i class="bi bi-circle-fill me-2 small"></i>LIVE CONNECTED';
-        };
-        ws.onerror = (error) => { console.error('[WS] エラー発生:', error); };
-        ws.onclose = () => { 
-            console.log('[WS] 接続が切断されました'); 
-            document.getElementById('connection-badge').className = "badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-50 px-3 py-2 rounded-pill";
-            document.getElementById('connection-badge').innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2 small"></i>DISCONNECTED';
-        };
-
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'queue_update') {
-                    updateQueueTable(data.queue);
-                }
-            } catch (e) {
-                console.error('[WS] メッセージのパースに失敗:', e);
+        // ★ WebSocket接続を確立・再確立する関数
+        function connectWS() {
+            // もし古い接続が生きていたら、イベントリスナーを解除して安全に閉じる（ゴミ残りのバグ防止）
+            if (ws) {
+                ws.onopen = null;
+                ws.onerror = null;
+                ws.onclose = null;
+                ws.onmessage = null;
+                ws.close();
             }
-        };
+
+            // 再接続ボタンを一旦ループさせて非表示、バッジを読み込み中に変更
+            document.getElementById('reconnect-btn').classList.add('d-none');
+            const badge = document.getElementById('connection-badge');
+            badge.className = "badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-50 px-3 py-2 rounded-pill";
+            badge.innerHTML = '<i class="bi bi-circle-fill me-2 small"></i>CONNECTING...';
+
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+            ws = new WebSocket(wsProtocol + window.location.host + '/console/ws');
+
+            ws.onopen = () => { 
+                console.log('[WS] 管理コンソール接続成功'); 
+                badge.className = "badge bg-success bg-opacity-10 text-success border border-success border-opacity-50 px-3 py-2 rounded-pill";
+                badge.innerHTML = '<i class="bi bi-circle-fill me-2 small"></i>LIVE CONNECTED';
+                showSuccessToast("通信サーバーに接続しました。");
+            };
+
+            ws.onerror = (error) => { 
+                console.error('[WS] エラー発生:', error); 
+            };
+
+            ws.onclose = () => { 
+                console.log('[WS] 接続が切断されました'); 
+                badge.className = "badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-50 px-3 py-2 rounded-pill";
+                badge.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2 small"></i>DISCONNECTED';
+                
+                // ★ 接続が切れたときだけ、再接続ボタンの「d-none（非表示クラス）」を解除して出現させる！
+                document.getElementById('reconnect-btn').classList.remove('d-none');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'queue_update') {
+                        updateQueueTable(data.queue);
+                    }
+                } catch (e) {
+                    console.error('[WS] メッセージのパースに失敗:', e);
+                }
+            };
+        }
 
         function updateQueueTable(queue) {
             const tbody = document.getElementById('queue-tbody');
@@ -319,7 +365,33 @@
             }
         }
 
-        // ★ 核心の送信＆異常値判定ロジック
+        function showSuccessToast(message = "データを更新しました。") {
+            const container = document.getElementById('toastContainer');
+            const toastWrapper = document.createElement('div');
+            toastWrapper.innerHTML = `
+                <div class="toast custom-toast text-light show" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
+                    <div class="toast-body d-flex align-items-center py-3 px-4">
+                        <i class="bi bi-check-circle-fill text-success fs-4 me-3"></i>
+                        <div>
+                            <strong class="d-block mb-0.5" style="color: #ffffff;">SUCCESS</strong>
+                            <span style="color: #adb5bd; font-size: 0.9rem;">${message}</span>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white ms-auto m-0" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `.trim();
+
+            const toastNode = toastWrapper.firstChild;
+            container.appendChild(toastNode);
+
+            const bootstrapToast = new bootstrap.Toast(toastNode);
+            bootstrapToast.show();
+
+            toastNode.addEventListener('hidden.bs.toast', function () {
+                toastNode.remove();
+            });
+        }
+
         function submitConfig(event, isForced = false) {
             if (event) event.preventDefault();
             const formData = new FormData(document.getElementById('configForm'));
@@ -328,25 +400,26 @@
             const minRange = parseInt(formData.get('time_required_range_min')) || 0;
             const maxRange = parseInt(formData.get('time_required_range_max')) || 0;
 
-            // 強制適用フラグ(isForced)が立っておらず、かつ範囲を超えている場合にアラート画面を起動
             if (!isForced && (timeRequired < minRange || timeRequired > maxRange)) {
-                // 専用モーダル内の数値をリアルタイム書き換え
                 document.getElementById('warn-current-value').innerText = `${timeRequired} 分`;
                 document.getElementById('warn-range-value').innerText = `${minRange} 分 ～ ${maxRange} 分`;
 
-                // BootstrapのModalインスタンスを生成して表示
                 const warningModal = new bootstrap.Modal(document.getElementById('anomalyWarningModal'));
                 warningModal.show();
 
-                // 「強制適用」ボタンが押された時のイベントを1回限りでバインド
                 document.getElementById('btn-force-submit').onclick = function() {
                     warningModal.hide();
-                    submitConfig(null, true); // 強制フラグをtrueにして再帰呼び出し
+                    submitConfig(null, true);
                 };
                 return false;
             }
 
-            // 通常時、または強制送信許可が出た場合はパケットをブロードキャスト
+            // 接続が切れている時はパケットを送らずに警告トーストを出す（エラーガード）
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showSuccessToast("エラー: 現在通信が切断されています。再接続を試みてください。");
+                return false;
+            }
+
             const payload = {
                 page_title: formData.get('page_title'),
                 room_name: formData.get('room_name'),
@@ -360,10 +433,9 @@
                 is_service_available: document.getElementById('switch_service_available').checked
             };
 
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(payload));
-                console.log('[WS] 設定をサーバーへ送信しました:', payload);
-            }
+            ws.send(JSON.stringify(payload));
+            console.log('[WS] 設定をサーバーへ送信しました:', payload);
+            showSuccessToast();
             return false;
         }
 
@@ -378,7 +450,11 @@
         }
 
         function controlQueue(action) { 
-            alert("進行操作: " + action + " (まだ実装できてない)"); 
+            let actionName = "更新しました";
+            if(action === 'call_next') actionName = "次の組を呼び出しました";
+            if(action === 'clear_all') actionName = "待機列を全消去しました";
+            
+            showSuccessToast(actionName);
         }
     </script>
 </body>

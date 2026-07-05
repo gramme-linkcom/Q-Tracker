@@ -27,18 +27,42 @@ var upgrader = websocket.Upgrader{
 
 // WebSocketHandler は最小限の接続維持と初期データ送信を行います
 func WebSocketHandler(env *api.APIEnv, w http.ResponseWriter, r *http.Request) {
+	if !checkAdminAuth(env, r) {
+		http.Error(w, "Unauthorized Session", http.StatusUnauthorized)
+		log.Println("[WS_AUTH_ERROR] 無効なセッションからのWebSocket接続を拒否しました")
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("WebSocket connection failed:", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		conn.Close()
+
+		cookie, err := r.Cookie("admin_session")
+		if err == nil {
+			env.SessionMu.Lock()
+			if env.AdminSessions != nil {
+				delete(env.AdminSessions, cookie.Value)
+				log.Printf("[WS_DISCONNECT] セッション %s を名簿から削除し、ロックを解放しました\n", cookie.Value[:8])
+			}
+			env.SessionMu.Unlock()
+		}
+	}()
 
 	sendInitialState(conn)
 
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
+			break
+		}
+
+		if !checkAdminAuth(env, r) {
+			log.Println("[WS_AUTH_ERROR] 操作中にセッションが無効化されたため、パケットを破棄しました")
+			_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Session Expired"))
 			break
 		}
 
