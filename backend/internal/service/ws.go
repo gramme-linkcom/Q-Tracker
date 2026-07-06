@@ -1,16 +1,49 @@
-package console
+package service
 
 import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
 
-	"kfqt_backend/internal/api"
 	"kfqt_backend/internal/model"
 	"kfqt_backend/internal/system"
 
 	"github.com/gorilla/websocket"
 )
+
+var ActiveAdminConn *websocket.Conn
+var ConnMu sync.Mutex // 同時書き込みによるクラッシュを防ぐ安全弁
+var QueueUpdateChan = make(chan []interface{}, 10)
+
+// QueueUpdateChannnelを監視して、データが来たらWSにブロードキャストするループ関数
+func StartQueueBroadcastLoop() {
+	for queueData := range QueueUpdateChan {
+		broadcastQueue(queueData)
+	}
+}
+
+func broadcastQueue(queueData []interface{}) {
+	ConnMu.Lock()
+	defer ConnMu.Unlock()
+
+	if ActiveAdminConn == nil {
+		return
+	}
+
+	payload := map[string]interface{}{
+		"type":  "queue_update",
+		"queue": queueData,
+	}
+
+	// ログイン中の「唯一の1台」に直接送信！
+	err := ActiveAdminConn.WriteJSON(payload)
+	if err != nil {
+		log.Println("[WS_WRITE_ERROR] 送信失敗、接続を切断します:", err)
+		ActiveAdminConn.Close()
+		ActiveAdminConn = nil
+	}
+}
 
 type Response struct {
 	Action    string `json:"action"`
@@ -26,8 +59,8 @@ var upgrader = websocket.Upgrader{
 }
 
 // WebSocketHandler は最小限の接続維持と初期データ送信を行います
-func WebSocketHandler(env *api.APIEnv, w http.ResponseWriter, r *http.Request) {
-	if !checkAdminAuth(env, r) {
+func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
+	if !checkAdminAuth(r) {
 		http.Error(w, "Unauthorized Session", http.StatusUnauthorized)
 		log.Println("[WS_AUTH_ERROR] 無効なセッションからのWebSocket接続を拒否しました")
 		return
@@ -43,12 +76,10 @@ func WebSocketHandler(env *api.APIEnv, w http.ResponseWriter, r *http.Request) {
 
 		cookie, err := r.Cookie("admin_session")
 		if err == nil {
-			env.SessionMu.Lock()
-			if env.AdminSessions != nil {
-				delete(env.AdminSessions, cookie.Value)
-				log.Printf("[WS_DISCONNECT] セッション %s を名簿から削除し、ロックを解放しました\n", cookie.Value[:8])
-			}
-			env.SessionMu.Unlock()
+			sessionMu.Lock()
+			delete(adminSessions, cookie.Value)
+			log.Printf("[WS_DISCONNECT] セッション %s を名簿から削除し、ロックを解放しました\n", cookie.Value[:8])
+			sessionMu.Unlock()
 		}
 	}()
 
@@ -60,7 +91,7 @@ func WebSocketHandler(env *api.APIEnv, w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		if !checkAdminAuth(env, r) {
+		if !checkAdminAuth(r) {
 			log.Println("[WS_AUTH_ERROR] 操作中にセッションが無効化されたため、パケットを破棄しました")
 			_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Session Expired"))
 			break

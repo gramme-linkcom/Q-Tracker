@@ -1,4 +1,4 @@
-package api
+package service
 
 import (
 	"encoding/json"
@@ -25,8 +25,8 @@ func (env *APIEnv) BookTicketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !system.ReadConfig().IsBookingAvailable {
-	    http.Error(w, `{"error": "ただいま整理券の新規発行を停止しております"}`, http.StatusBadRequest)
-	    return
+		http.Error(w, `{"error": "ただいま整理券の新規発行を停止しております"}`, http.StatusBadRequest)
+		return
 	}
 
 	bookingNumber, err := repository.CreateUserTicket(env.DB, req.PushToken)
@@ -37,6 +37,20 @@ func (env *APIEnv) BookTicketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("[INFO] 整理券を発行(発行者: ユーザー): 番号=%d", bookingNumber)
+
+	// 管理者コンソールへ送出
+	tickets, err := repository.GetActiveTickets(env.DB)
+	if err == nil {
+		var queueData []interface{}
+		for _, t := range tickets {
+			queueData = append(queueData, t)
+		}
+		select {
+		case QueueUpdateChan <- queueData:
+		default:
+			log.Println("[WS] チャンネルが詰まっているためスキップしました")
+		}
+	}
 
 	response := model.BookingResponse{
 		BookingNumber: int(bookingNumber),

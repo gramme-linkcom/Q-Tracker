@@ -349,18 +349,22 @@
             const tbody = document.getElementById('queue-tbody');
             const countBadge = document.getElementById('queue-count');
             
+            // 1. 待機組数のカウントをリアルタイムに更新
             countBadge.innerText = queue ? queue.length : 0;
             tbody.innerHTML = '';
 
+            // 2. 待機ユーザーが1組以上いる場合のループ処理
             if (queue && queue.length > 0) {
                 queue.forEach(group => {
                     const row = `<tr>
-                        <td class="fw-bold text-primary">#${group.number}</td>
-                        <td><span class="badge bg-secondary fs-6 px-3">${group.size}名</span></td>
+                        <td class="fw-bold text-primary" style="font-size: 1.1rem;">#${group.number}</td>
+                        <td class="fw-bold text-light">${groupName}</td>
+                        <td><span class="badge bg-secondary fs-6 px-3 py-1.5 rounded-pill">${group.size} 名</span></td>
                     </tr>`;
                     tbody.innerHTML += row;
                 });
             } else {
+                // 3. 待機ユーザーが0人の場合のクリーンな表示
                 tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted-custom py-5 fs-5">現在、待機しているグループはありません。</td></tr>`;
             }
         }

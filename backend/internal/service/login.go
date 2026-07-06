@@ -1,15 +1,19 @@
-// console/login.go
-package console
+package service
 
 import (
 	"crypto/rand"
 	"encoding/hex"
 	"html/template"
-	"kfqt_backend/internal/api"
 	"kfqt_backend/internal/repository"
 	"kfqt_backend/internal/system"
 	"net/http"
 	"os"
+	"sync"
+)
+
+var (
+	adminSessions = make(map[string]bool)
+	sessionMu     sync.RWMutex
 )
 
 func generateSecureToken() string {
@@ -20,18 +24,18 @@ func generateSecureToken() string {
 	return hex.EncodeToString(b)
 }
 
-func checkAdminAuth(env *api.APIEnv, r *http.Request) bool {
+func checkAdminAuth(r *http.Request) bool {
 	cookie, err := r.Cookie("admin_session")
 	if err != nil {
 		return false
 	}
 
-	env.SessionMu.RLock()
-	defer env.SessionMu.RUnlock()
-	return env.AdminSessions != nil && env.AdminSessions[cookie.Value]
+	sessionMu.RLock()
+	defer sessionMu.RUnlock()
+	return adminSessions[cookie.Value]
 }
 
-func AdminConsoleHandler(env *api.APIEnv, w http.ResponseWriter, r *http.Request) {
+func AdminConsoleHandler(w http.ResponseWriter, r *http.Request) {
 	config := system.ReadConfig()
 	adminAddress := r.PathValue("admin_console_address")
 
@@ -41,26 +45,22 @@ func AdminConsoleHandler(env *api.APIEnv, w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if r.Method == http.MethodPost && !checkAdminAuth(env, r) {
+	if r.Method == http.MethodPost && !checkAdminAuth(r) {
 		r.ParseForm()
 		password := r.FormValue("password")
 
 		if password == os.Getenv("ADMIN_CONSOLE_PSW") {
 			sessionID := generateSecureToken()
 
-            env.SessionMu.Lock()
-            if env.AdminSessions == nil {
-                env.AdminSessions = make(map[string]bool)
-            }
+			sessionMu.Lock()
+			if len(adminSessions) > 0 {
+				sessionMu.Unlock()
+				http.Error(w, "Other administrator is already logged in. Access Denied.", http.StatusForbidden)
+				return
+			}
 
-            if len(env.AdminSessions) > 0 {
-                env.SessionMu.Unlock()
-                http.Error(w, "Other administrator is already logged in. Access Denied.", http.StatusForbidden)
-                return
-            }
-
-            env.AdminSessions[sessionID] = true
-            env.SessionMu.Unlock()
+			adminSessions[sessionID] = true
+			sessionMu.Unlock()
 
 			cookie := &http.Cookie{
 				Name:     "admin_session",
@@ -80,7 +80,7 @@ func AdminConsoleHandler(env *api.APIEnv, w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if !checkAdminAuth(env, r) {
+	if !checkAdminAuth(r) {
 		tmpl, err := template.ParseFiles("templates/login.html")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

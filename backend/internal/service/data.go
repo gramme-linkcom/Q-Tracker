@@ -1,4 +1,4 @@
-package api
+package service
 
 import (
 	"database/sql"
@@ -7,13 +7,10 @@ import (
 	"kfqt_backend/internal/repository"
 	"kfqt_backend/internal/system"
 	"net/http"
-	"sync"
 )
 
 type APIEnv struct {
 	DB *sql.DB
-	AdminSessions map[string]bool
-	SessionMu     sync.RWMutex
 }
 
 func (env *APIEnv) GetStatusHandler(w http.ResponseWriter, r *http.Request) {
