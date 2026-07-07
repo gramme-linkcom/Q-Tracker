@@ -45,3 +45,17 @@ func AbsentUserTicket(db *sql.DB, bookingNumber int) error {
 	_, err := db.Exec(query, bookingNumber)
 	return err
 }
+
+func MarkGroupAsServing(db *sql.DB, bookingNumber int) error {
+	query := "UPDATE tickets SET status = 'serving' WHERE number = ? AND status = 'waiting'"
+	
+	_, err := db.Exec(query, bookingNumber)
+	return err
+}
+
+func FinishServingGroup(db *sql.DB) error {
+	query := "UPDATE tickets SET status = 'done' WHERE status = 'serving'"
+	
+	_, err := db.Exec(query)
+	return err
+}

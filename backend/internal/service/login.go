@@ -102,14 +102,32 @@ func (env *APIEnv) AdminConsoleHandler(w http.ResponseWriter, r *http.Request) {
 		NextNumber    int
 		CurrentNumber int
 		WaitingGroups int
+		IsRoomActive  int
+		RoomActiveNumber int
 		Tickets       []model.Ticket
 		Config        map[string]interface{}
 	}
 
-	tickets, err := repository.GetActiveTickets(env.DB)
+	tickets, err := repository.GetWaitingTickets(env.DB)
 	if err != nil {
 		log.Fatalln("DBからのデータ取得に失敗しました。DBが破損している可能性があります。")
 		return
+	}
+	var ticketsData []interface{}
+	for _, t := range tickets {
+		ticketsData = append(ticketsData, t)
+	}
+
+	RoomData, err := repository.GetRoomStatus(env.DB)
+	if err != nil {
+		log.Fatalln("DBからのデータ取得に失敗しました。DBが破損している可能性があります。")
+		return
+	}
+	isRoomActiveInt := 0
+	callingNumber := 0
+	if RoomData.IsActive {
+		isRoomActiveInt = 1 // 画面側に「入場中だよ！」と伝えるフラグ
+		callingNumber = RoomData.CurrentNumber
 	}
 
 	// 取得したデータをもとに、API側でロジック計算を行う
@@ -143,7 +161,9 @@ func (env *APIEnv) AdminConsoleHandler(w http.ResponseWriter, r *http.Request) {
 		NextNumber:    nextNumber,
 		CurrentNumber: currentNumber,
 		WaitingGroups: waitingGroups,
-		Tickets:       []model.Ticket{},
+		IsRoomActive:  isRoomActiveInt,
+		RoomActiveNumber: callingNumber,
+		Tickets:       tickets,
 		Config:        configData,
 	}
 

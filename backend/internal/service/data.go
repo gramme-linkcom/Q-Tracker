@@ -93,11 +93,7 @@ func (env *APIEnv) GetStatusHandler(w http.ResponseWriter, r *http.Request) {
 	
 
 	waitTime := 0
-	if room.IsActive {
-		waitTime = (waitingGroups + 1) * config.TimeRequired
-	} else {
-		waitTime = waitingGroups * config.TimeRequired
-	}
+	waitTime = waitingGroups * config.TimeRequired
 
 	noticeMessage := config.MessageAvailable
 	if waitTime >= 15 {

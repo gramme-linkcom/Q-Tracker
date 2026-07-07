@@ -129,7 +129,7 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					log.Println("[ERROR] 整理券をキャンセルできませんでした。")
 				}
-				tickets, _ := repository.GetActiveTickets(env.DB)
+				tickets, err := repository.GetWaitingTickets(env.DB)
 				if err == nil {
 					var queueData []interface{}
 					for _, t := range tickets {
@@ -143,7 +143,7 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					log.Println("[ERROR] 整理券を不在キャンセルできませんでした。")
 				}
-				tickets, _ := repository.GetActiveTickets(env.DB)
+				tickets, err := repository.GetWaitingTickets(env.DB)
 				if err == nil {
 					var queueData []interface{}
 					for _, t := range tickets {
@@ -153,13 +153,171 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 				}
 
 			case "group_enter":
-				// 入場処理ロジック...
-			case "group_exit":
-				// 退場処理ロジック...
-			case "clear_all":
-				// 全削除ロジック（もし拒否条件に引っかかったら、前作ったoperation_deniedのトーストをフロントに投げ返す）
-			}
+				youngTicketNumber, err := repository.GetYoungerGroups(env.DB)
+				if err != nil {
+					log.Println("チケット情報の取得に失敗しました。")
+					continue
+				}
 
+				log.Printf("取得したID: %d\n", youngTicketNumber)
+
+				roomStatus := repository.RoomStatus {
+					IsActive: true,
+					CurrentNumber: youngTicketNumber,
+				}
+				if res := repository.SetRoomStatus(env.DB, roomStatus); res != nil {
+					log.Println("ルーム状況の更新に失敗しました")
+					continue
+				}
+				if res := repository.MarkGroupAsServing(env.DB, youngTicketNumber); res != nil {
+					log.Println("ユーザーステータスの更新に失敗しました。")
+					continue
+				}
+				log.Printf("入室処理を実行: %d\n", youngTicketNumber)
+				tickets, _ := repository.GetWaitingTickets(env.DB)
+				if err == nil {
+					var queueData []interface{}
+					for _, t := range tickets {
+						queueData = append(queueData, t)
+					}
+					BroadcastQueue(BroadcastDatas{PushType: "queue_update", Queue: queueData})
+				}
+			case "group_exit":
+				roomStatus := repository.RoomStatus {
+					IsActive: false,
+					CurrentNumber: 0,
+				}
+				if res := repository.SetRoomStatus(env.DB, roomStatus); res != nil {
+					log.Println("ルーム状況の更新に失敗しました")
+					continue
+				}
+				if res := repository.FinishServingGroup(env.DB); res != nil {
+					log.Println("ユーザーステータスの更新に失敗しました。")
+					continue
+				}
+				log.Println("退出処理を実行")
+				tickets, err := repository.GetWaitingTickets(env.DB)
+				if err == nil {
+					var queueData []interface{}
+					for _, t := range tickets {
+						queueData = append(queueData, t)
+					}
+					BroadcastQueue(BroadcastDatas{PushType: "queue_update", Queue: queueData})
+				}
+			
+			case "clear_all":
+				room, err := repository.GetRoomStatus(env.DB)
+				if err == nil && room.IsActive {
+					log.Println("[WS_WARN] 現在グループが入場中のため、リセットを拒否しました。")
+					
+					payload := map[string]interface{}{
+						"type":    "operation_denied",
+						"message": "現在アクティブな入場グループが存在するため、整理券番号のリセットは拒否されました。退場処理を先に行うか、空室時に実行してください。",
+					}
+					_ = conn.WriteJSON(payload)
+					continue
+				}
+
+				cfg := system.ReadConfig()
+				if (!cfg.IsBookingAvailable || !IsWithinServeTime(cfg.ServeStartTime, cfg.ServeEndTime) || !cfg.IsServiceAvailable) {
+					remainTickets, err := repository.GetWaitingTickets(env.DB)
+					if (len(remainTickets) != 0) {
+						log.Println("[WS_WARN] 待機列が存在するため、リセットを拒否しました。")
+						
+						payload := map[string]interface{}{
+							"type":    "operation_denied",
+							"message": "待機列が存在するため、整理券番号のリセットは拒否されました。",
+						}
+						_ = conn.WriteJSON(payload)
+						continue
+					}
+
+					_, err = env.DB.Exec("DELETE FROM tickets")
+					if err != nil {
+						log.Printf("[DB_ERROR] チケットデータの全削除に失敗しました: %v\n", err)
+						payload := map[string]interface{}{
+							"type":    "operation_denied",
+							"message": "データベースエラーによりリセットに失敗しました。",
+						}
+						_ = conn.WriteJSON(payload)
+						continue
+					}
+
+					_, err = env.DB.Exec("DELETE FROM sqlite_sequence WHERE name = 'tickets'")
+					if err != nil {
+						log.Printf("[DB_ERROR] 自動採番カウンターのリセットに失敗しました: %v\n", err)
+					} else {
+						log.Println("[DB_LOG] 整理券の採番カウンターを1番にリセットしました。")
+					}
+
+					// 4. ルーム状況（room_status）も初期状態（0番、空室）にリセット
+					resetRoom := repository.RoomStatus{
+						CurrentNumber: 0,
+						IsActive:      false,
+					}
+					if err := repository.SetRoomStatus(env.DB, resetRoom); err != nil {
+						log.Printf("[DB_ERROR] ルーム状況のリセットに失敗しました: %v\n", err)
+					}
+
+					log.Println("[WS_ACTION] 整理券番号のリセット処理（全データ削除＆採番初期化）が成功しました。")
+
+					// 5. 空っぽになった最新の待機列を管理画面（および全ユーザー画面）へリアルタイム同期配信！
+					tickets, err := repository.GetWaitingTickets(env.DB)
+					if err == nil {
+						var queueData []interface{}
+						for _, t := range tickets {
+							queueData = append(queueData, t)
+						}
+						BroadcastQueue(BroadcastDatas{PushType: "queue_update", Queue: queueData})
+					}
+				} else {
+					log.Println("[WS_WARN] 整理券受付中のため、リセットを拒否しました。")
+					
+					payload := map[string]interface{}{
+						"type":    "operation_denied",
+						"message": "整理券受付中のため、整理券番号のリセットは拒否されました。リセットしたい場合は、整理券受付を停止してください。",
+					}
+					_ = conn.WriteJSON(payload)
+					continue
+				}
+
+			case "reflesh":
+				tickets, err := repository.GetWaitingTickets(env.DB)
+				if err == nil {
+					var queueData []interface{}
+					for _, t := range tickets {
+						queueData = append(queueData, t)
+					}
+					BroadcastQueue(BroadcastDatas{PushType: "queue_update", Queue: queueData})
+				}
+			
+			case "issue_manual_ticket":
+				cfg := system.ReadConfig()
+				if (!cfg.IsBookingAvailable || !IsWithinServeTime(cfg.ServeStartTime, cfg.ServeEndTime) || !cfg.IsServiceAvailable) {
+					log.Println("発券停止中のため、発券できませんでした。")
+					payload := map[string]interface{}{
+						"type":    "operation_denied",
+						"message": "発券停止中のため、発券できませんでした。",
+					}
+					_ = conn.WriteJSON(payload)
+					continue
+				}
+				bookingData, err := repository.CreateUserTicket(env.DB, "")
+				if err != nil {
+					log.Printf("[ERROR] 整理券の発行失敗: %v", err)
+					continue
+				}
+
+				log.Printf("[INFO] 整理券を発行(発行者: 管理者): 番号=%d", bookingData.TicketNumber)
+				tickets, err := repository.GetWaitingTickets(env.DB)
+				if err == nil {
+					var queueData []interface{}
+					for _, t := range tickets {
+						queueData = append(queueData, t)
+					}
+					BroadcastQueue(BroadcastDatas{PushType: "queue_update", Queue: queueData})
+				}
+			}
 		} else {
 			// アクションが含まれていない場合は、従来通りの「設定データ」として処理
 			var newConfigData model.Config
@@ -180,6 +338,10 @@ func (env *APIEnv) sendInitialState(conn *websocket.Conn) {
 		log.Fatalln("DBからのデータ取得に失敗しました。DBが破損している可能性があります。")
 		return
 	}
+	var ticketsData []interface{}
+	for _, t := range tickets {
+		ticketsData = append(ticketsData, t)
+	}
 
 	// 取得したデータをもとに、API側でロジック計算を行う
 	waitingGroups := len(tickets)
@@ -199,7 +361,7 @@ func (env *APIEnv) sendInitialState(conn *websocket.Conn) {
 		"nextNumber":    nextNumber,
 		"currentNumber": currentNumber,
 		"waitingGroups": waitingGroups,
-		"tickets":       []interface{}{}, // 待ち列一覧（空）
+		"tickets":       ticketsData, // 待ち列一覧（空）
 		"config": map[string]interface{}{
 			"page_title":              cfg.PageTitle,
 			"room_name":               cfg.RoomName,
