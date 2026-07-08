@@ -155,6 +155,8 @@ func (env *APIEnv) AdminConsoleHandler(w http.ResponseWriter, r *http.Request) {
 		"IsBookingAvailable":   cfg.IsBookingAvailable,
 		"IsServiceAvailable":	cfg.IsServiceAvailable,
 		"AdminConsoleAddress":  adminAddress,
+		"CallInAdvanceMessage": cfg.CallInAdvanceMessage,
+		"CallCurrentMessage":	cfg.CallCurrentMessage,
 	}
 
 	data := CombinedAdminData{

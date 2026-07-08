@@ -143,7 +143,7 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 					log.Println("次のチケット情報の取得に失敗しました。")
 					continue
 				} else if (nextTicketData.DeviceID != ""){
-					go SendPushToUser(nextTicketData.DeviceID, "お待たせいたしました！順番が来ましたので、窓口までお越しください。")
+					go SendPushToUser(nextTicketData.DeviceID, system.ReadConfig().CallCurrentMessage)
 				}
 
 			case "absent_ticket":
@@ -165,7 +165,7 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 					log.Println("次のチケット情報の取得に失敗しました。")
 					continue
 				} else if (nextTicketData.DeviceID != ""){
-					go SendPushToUser(nextTicketData.DeviceID, "お待たせいたしました！順番が来ましたので、窓口までお越しください。")
+					go SendPushToUser(nextTicketData.DeviceID, system.ReadConfig().CallCurrentMessage)
 				}
 
 			case "group_enter":
@@ -204,7 +204,7 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 					log.Println("次のチケット情報の取得に失敗しました。")
 					continue
 				} else if (nextTicketData.DeviceID != ""){
-					go SendPushToUser(nextTicketData.DeviceID, "まもなくご案内いたします。アトラクション付近までお進みください。")
+					go SendPushToUser(nextTicketData.DeviceID, system.ReadConfig().CallInAdvanceMessage)
 				}
 			case "group_exit":
 				roomStatus := repository.RoomStatus {
@@ -234,7 +234,7 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 					log.Println("次のチケット情報の取得に失敗しました。")
 					continue
 				} else if (nextTicketData.DeviceID != ""){
-					go SendPushToUser(nextTicketData.DeviceID, "お待たせいたしました！順番が来ましたので、窓口までお越しください。")
+					go SendPushToUser(nextTicketData.DeviceID, system.ReadConfig().CallCurrentMessage)
 				}
 			
 			case "clear_all":

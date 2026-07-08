@@ -48,6 +48,8 @@ func SaveConfig(newConfigData model.Config) (error){
 	config.Infomation     			= newConfigData.Infomation
 	config.IsBookingAvailable 		= newConfigData.IsBookingAvailable
 	config.IsServiceAvailable		= newConfigData.IsServiceAvailable
+	config.CallCurrentMessage		= newConfigData.CallCurrentMessage
+	config.CallInAdvanceMessage		= newConfigData.CallInAdvanceMessage
 
 
 	updatedBytes, err := json.MarshalIndent(config, "", "    ")

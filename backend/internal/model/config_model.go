@@ -14,6 +14,7 @@ type Config struct {
 
 	Infomation			string	`json:"infomation"`				// アトラクションからのお知らせ
 	CallInAdvanceMessage string	`json:"call_in_advice_message"` // 案内直前のユーザーに送られるメッセージ
+	CallCurrentMessage	string `json:"call_current_message"`		// 案内対象者へ送られるメッセージ
 	// 状況に応じたお知らせメッセージ
     MessageAvailable    string `json:"message_available"`		// すぐに案内できるとき
     MessageNormalDelay  string `json:"message_normal_delay"`	// 少し時間がかかるとき
