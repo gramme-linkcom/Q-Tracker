@@ -29,7 +29,7 @@ func SetRoomStatus(db *sql.DB, roomStatus RoomStatus) error {
 	return err
 }
 
-func GetYoungerGroups(db *sql.DB) (int, error) {
+func GetYoungerGroups(db *sql.DB) (*model.Ticket, error) {
 	query := "SELECT number, device_id, status FROM tickets WHERE status = 'waiting' ORDER BY number ASC LIMIT 1;"
 	var t model.Ticket
 	// 1件だけの取得なので QueryRow を使い、Scan で構造体に流し込む
@@ -37,12 +37,12 @@ func GetYoungerGroups(db *sql.DB) (int, error) {
 	
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, errors.New("現在待機中のチケットはありません")
+			return nil, errors.New("現在待機中のチケットはありません")
 		}
-		return 0, err
+		return nil, err
 	}
 
-	return t.Number, nil
+	return &t, nil
 }
 
 func GetAheadGroups(db *sql.DB, myNumberStr string) (int) {

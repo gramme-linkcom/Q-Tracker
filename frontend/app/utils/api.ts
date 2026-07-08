@@ -13,8 +13,16 @@ export interface QueueStatus {
   infoMessage?: string;
 }
 
+export async function getPublicVapidKey() {
+  const res = await fetch('/api/vapid-public-key');
+  if (!res.ok) {
+      throw new Error('公開鍵の取得に失敗しました');
+  }
+  return (await res.text()).trim();
+}
+
 export async function getTicketExists(bookingNumber: number, uuid: string): Promise<boolean> {
-  let url = `/api/exists_ticket?myNumber=${bookingNumber}&uuid=${uuid}`;
+  let url = `/api/exists-ticket?myNumber=${bookingNumber}&uuid=${uuid}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error("データの取得に失敗しました");
 

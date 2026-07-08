@@ -41,7 +41,7 @@ export default function BookingModal({ isOpen, onClose, onConfirm }: BookingModa
             <li className="flex items-start gap-2.5">
               <i className="bi bi-bell text-zinc-500 text-sm mt-0.5 shrink-0"></i>
               <span>
-                ブラウザを閉じても通知は届きますが、通信環境等により遅れる場合がございます。適宜画面を更新してご確認ください。
+                通知を許可した場合、ブラウザを閉じても通知は届きますが、通信環境等により遅れる場合がございます。適宜画面を更新してご確認ください。
               </span>
             </li>
           </ul>

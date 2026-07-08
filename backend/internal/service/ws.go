@@ -128,6 +128,7 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 				err := repository.CancelUserTicket(env.DB, actionData.Number)
 				if err != nil {
 					log.Println("[ERROR] 整理券をキャンセルできませんでした。")
+					continue
 				}
 				tickets, err := repository.GetWaitingTickets(env.DB)
 				if err == nil {
@@ -136,12 +137,20 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 						queueData = append(queueData, t)
 					}
 					BroadcastQueue(BroadcastDatas{PushType: "queue_update", Queue: queueData})
+				}
+				nextTicketData, err := repository.GetYoungerGroups(env.DB)
+				if err != nil {
+					log.Println("次のチケット情報の取得に失敗しました。")
+					continue
+				} else if (nextTicketData.DeviceID != ""){
+					go SendPushToUser(nextTicketData.DeviceID, "お待たせいたしました！順番が来ましたので、窓口までお越しください。")
 				}
 
 			case "absent_ticket":
 				err := repository.AbsentUserTicket(env.DB, actionData.Number)
 				if err != nil {
 					log.Println("[ERROR] 整理券を不在キャンセルできませんでした。")
+					continue
 				}
 				tickets, err := repository.GetWaitingTickets(env.DB)
 				if err == nil {
@@ -151,29 +160,36 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 					}
 					BroadcastQueue(BroadcastDatas{PushType: "queue_update", Queue: queueData})
 				}
+				nextTicketData, err := repository.GetYoungerGroups(env.DB)
+				if err != nil {
+					log.Println("次のチケット情報の取得に失敗しました。")
+					continue
+				} else if (nextTicketData.DeviceID != ""){
+					go SendPushToUser(nextTicketData.DeviceID, "お待たせいたしました！順番が来ましたので、窓口までお越しください。")
+				}
 
 			case "group_enter":
-				youngTicketNumber, err := repository.GetYoungerGroups(env.DB)
+				youngTicketData, err := repository.GetYoungerGroups(env.DB)
 				if err != nil {
 					log.Println("チケット情報の取得に失敗しました。")
 					continue
 				}
 
-				log.Printf("取得したID: %d\n", youngTicketNumber)
+				log.Printf("取得したID: %d\n", youngTicketData.Number)
 
 				roomStatus := repository.RoomStatus {
 					IsActive: true,
-					CurrentNumber: youngTicketNumber,
+					CurrentNumber: youngTicketData.Number,
 				}
 				if res := repository.SetRoomStatus(env.DB, roomStatus); res != nil {
 					log.Println("ルーム状況の更新に失敗しました")
 					continue
 				}
-				if res := repository.MarkGroupAsServing(env.DB, youngTicketNumber); res != nil {
+				if res := repository.MarkGroupAsServing(env.DB, youngTicketData.Number); res != nil {
 					log.Println("ユーザーステータスの更新に失敗しました。")
 					continue
 				}
-				log.Printf("入室処理を実行: %d\n", youngTicketNumber)
+				log.Printf("入室処理を実行: %d\n", youngTicketData.Number)
 				tickets, _ := repository.GetWaitingTickets(env.DB)
 				if err == nil {
 					var queueData []interface{}
@@ -181,6 +197,14 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 						queueData = append(queueData, t)
 					}
 					BroadcastQueue(BroadcastDatas{PushType: "queue_update", Queue: queueData})
+				}
+
+				nextTicketData, err := repository.GetYoungerGroups(env.DB)
+				if err != nil {
+					log.Println("次のチケット情報の取得に失敗しました。")
+					continue
+				} else if (nextTicketData.DeviceID != ""){
+					go SendPushToUser(nextTicketData.DeviceID, "まもなくご案内いたします。アトラクション付近までお進みください。")
 				}
 			case "group_exit":
 				roomStatus := repository.RoomStatus {
@@ -203,6 +227,14 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 						queueData = append(queueData, t)
 					}
 					BroadcastQueue(BroadcastDatas{PushType: "queue_update", Queue: queueData})
+				}
+
+				nextTicketData, err := repository.GetYoungerGroups(env.DB)
+				if err != nil {
+					log.Println("次のチケット情報の取得に失敗しました。")
+					continue
+				} else if (nextTicketData.DeviceID != ""){
+					go SendPushToUser(nextTicketData.DeviceID, "お待たせいたしました！順番が来ましたので、窓口までお越しください。")
 				}
 			
 			case "clear_all":

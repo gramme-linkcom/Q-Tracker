@@ -8,7 +8,7 @@ import IosModal from "./components/IosModal";
 import DetectIosBrowser from "./utils/DetectIosBrowser";
 import BookingDataModal from "./components/BookingDataModal";
 import BookingCancelModal from "./components/BookingCancelModal";
-import { bookTicket, cancelTicket, fetchQueueStatus, getTicketExists } from "./utils/api";
+import { bookTicket, cancelTicket, fetchQueueStatus, getTicketExists, getPublicVapidKey } from "./utils/api";
 
 export default function Home() {
   const REFRESH_INTERVAL_SEC = 30;
@@ -42,19 +42,8 @@ export default function Home() {
   const [countdown, setCountdown] = useState<number>(REFRESH_INTERVAL_SEC);
   const [showBookingData, setShowBookingData] = useState<boolean>(false)
 
-  const [pageTitle, setPageTitle] = useState<string>(() => {
-    if (typeof window !== "undefined" && (window as any).__SERVER_CONFIG__) {
-      return (window as any).__SERVER_CONFIG__.pageTitle;
-    }
-    return "Q-Tracker"; // フォールバック
-  });
-
-  const [roomName, setRoomName] = useState<string>(() => {
-    if (typeof window !== "undefined" && (window as any).__SERVER_CONFIG__) {
-      return (window as any).__SERVER_CONFIG__.roomName;
-    }
-    return "Room"; // フォールバック
-  });
+  const [pageTitle, setPageTitle] = useState<string>("Q-Tracker");
+  const [roomName, setRoomName] = useState<string>("Room");
 
   useEffect(() => {
     bookingNumberRef.current = bookingNumber;
@@ -118,18 +107,34 @@ export default function Home() {
   
   // 整理券発行
   const confirmBooking = async () => {
-    // ★【二重ガード】すでに発行処理中ならこれ以上何も処理をしない
     if (isBookingInProgress) return;
 
     try {
-      // ★ 発行開始直前に処理中フラグをONにする（ロックをかける）
       setIsBookingInProgress(true);
 
-      const data = await bookTicket("");
+      let pushToken = "";
+      try {
+        // 1. サーバー（Go）からVAPID公開鍵をスマートに取得
+        const vapidKey = await getPublicVapidKey();
+        
+        // 2. util.tsの関数を呼び出し、通知許可取得＆本日23:59期限付き端末IDを生成
+        // （※読み込み元に import { requestNotificationPermission } from "./utils/util"; が必要です）
+        const { requestNotificationPermission } = await import("./utils/util");
+        pushToken = await requestNotificationPermission(vapidKey);
+      } catch (pushErr) {
+        // 通知登録フェーズでエラー（SafariのPWA化忘れや権限拒否など）が起きても、
+        // 発券自体は手動と同じ扱いで継続できるように安全ガード（フォールバック）を敷きます
+        console.warn("[WebPush] 通知トークンの取得をスキップして発券を続行します:", pushErr);
+        pushToken = "";
+      }
+
+      // 3. 生成した端末ID（または空文字）を乗せてサーバーへ一撃ポスト！
+      const data = await bookTicket(pushToken);
+      
       await handleRefresh(data.bookingNumber);
       setBookingNumber(data.bookingNumber);
       localStorage.setItem('booking_number', `${data.bookingNumber}`);
-      localStorage.setItem('booking_uuid', `${data.uuid}`)
+      localStorage.setItem('booking_uuid', `${data.uuid}`);
       setShowBookingData(true);
       setIsBooked(true);
       setShowToast(true);
@@ -137,11 +142,10 @@ export default function Home() {
     } catch (error) {
       alert("整理券の発行に失敗しました。もう一度お試しください。");
     } finally {
-      // ★ 成功・失敗に関わらず、すべての通信が終わったら必ずフラグをリセットしてロックを解放する
       setIsBookingInProgress(false);
     }
 
-    setIsNotificationDenied(false)
+    setIsNotificationDenied(false);
     if ("Notification" in window && Notification.permission === "denied") {
       setIsNotificationDenied(true);
     }
@@ -212,6 +216,24 @@ const confirmCancelBooking = async () => {
 
     loadData();
     setShowIosModal(DetectIosBrowser());
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js')
+          .then(function(registration) {
+            console.log('[ServiceWorker] 登録成功！スコープ: ', registration.scope);
+          })
+          .catch(function(error) {
+            console.error('[ServiceWorker] 登録失敗... 原因:', error);
+          });
+      });
+    };
+
+    if (typeof window !== "undefined" && (window as any).__SERVER_CONFIG__) {
+      if ((window as any).__SERVER_CONFIG__.pageTitle) setPageTitle((window as any).__SERVER_CONFIG__.pageTitle);
+      if ((window as any).__SERVER_CONFIG__.roomName) setRoomName((window as any).__SERVER_CONFIG__.roomName);
+    }
+
     if ("Notification" in window && Notification.permission === "denied") {
       setIsNotificationDenied(true);
     }

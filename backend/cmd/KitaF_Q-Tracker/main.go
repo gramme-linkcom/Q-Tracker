@@ -32,9 +32,13 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", middleware.SameSiteOnlyMiddleware(internal.GetIndexHandlerfunc))
 	mux.HandleFunc("GET /api/data", middleware.SameSiteOnlyMiddleware(env.GetStatusHandler))
-	mux.HandleFunc("GET /api/exists_ticket", middleware.SameSiteOnlyMiddleware(env.GetExistsTicket))
+	mux.HandleFunc("GET /api/exists-ticket", middleware.SameSiteOnlyMiddleware(env.GetExistsTicket))
 	mux.HandleFunc("POST /api/booking", middleware.SameSiteOnlyMiddleware(env.BookTicketHandler))
 	mux.HandleFunc("POST /api/booking/cancel", middleware.SameSiteOnlyMiddleware(env.CancelBookingHandler))
+	mux.HandleFunc("GET /api/vapid-public-key", service.VapidPublicKeyHandler)
+	mux.HandleFunc("GET /manifest.json", service.ManifestHandler)
+	mux.HandleFunc("GET /manifest.webmanifest", service.ManifestHandler)
+	
 	mux.HandleFunc("GET /console/admin/{admin_console_address}", func(w http.ResponseWriter, r *http.Request) {
 		middleware.SameSiteOnlyMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			env.AdminConsoleHandler(w, r)

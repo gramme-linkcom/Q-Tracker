@@ -15,7 +15,7 @@ var vapidPrivateKey = os.Getenv("PUSH_PRIVATE_KEY")
 var SubscriberStr = os.Getenv("SUBSCRIBER")
 
 // VapidPublicKeyHandler はフロントに公開キーを渡します
-func (env *APIEnv) VapidPublicKeyHandler(w http.ResponseWriter, r *http.Request) {
+func VapidPublicKeyHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Write([]byte(VapidPublicKey))
 }
@@ -42,7 +42,7 @@ func SendPushToUser(subscriptionJSON string, message string) {
 
 	// 3. 送信実行！
 	resp, err := webpush.SendNotification(payload, &sub, &webpush.Options{
-		Subscriber:      "developer@9ramme.net",
+		Subscriber:      SubscriberStr,
 		VAPIDPublicKey:  VapidPublicKey,
 		VAPIDPrivateKey: vapidPrivateKey,
 		TTL:             30, // 30秒間届かなければ消滅（古い通知が後から溜まるのを防ぐ）
