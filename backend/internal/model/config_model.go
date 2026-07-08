@@ -13,7 +13,7 @@ type Config struct {
 	ServeEndTime		string	`json:"serve_end_time"`			// HH:MM 形式
 
 	Infomation			string	`json:"infomation"`				// アトラクションからのお知らせ
-	CallInAdvanceMessage string	`json:"call_in_advice_message"` // 案内直前のユーザーに送られるメッセージ
+	CallInAdvanceMessage string	`json:"call_in_advance_message"` // 案内直前のユーザーに送られるメッセージ
 	CallCurrentMessage	string `json:"call_current_message"`		// 案内対象者へ送られるメッセージ
 	// 状況に応じたお知らせメッセージ
     MessageAvailable    string `json:"message_available"`		// すぐに案内できるとき
