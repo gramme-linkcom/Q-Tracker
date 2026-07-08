@@ -1,5 +1,16 @@
+package service
+
+import (
+	"net/http"
+)
+
+func ServiceWorkerHandler(w http.ResponseWriter, r *http.Request) {
+	js := `
 self.addEventListener('push', function(event) {
-  if (!event.data) return;
+  if (!event.data) {
+    console.warn('[Service Worker] Pushメッセージにデータが含まれていません。');
+    return;
+  }
 
   let title = "Q-Tracker 呼び出し";
   let body = "";
@@ -14,10 +25,12 @@ self.addEventListener('push', function(event) {
 
   const options = {
     body: body,
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: '/icon-192.png',       // アプリのアイコン画像
+    badge: '/icon-192.png',      // スマホの上のバーに出る小さなアイコン
     vibrate: [200, 100, 200],
-    data: { url: '/' }
+    data: {
+      url: '/'                   // 通知をタップしたときに開くURL
+    }
   };
 
   event.waitUntil(
@@ -27,6 +40,7 @@ self.addEventListener('push', function(event) {
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       for (let i = 0; i < clientList.length; i++) {
@@ -41,3 +55,12 @@ self.addEventListener('notificationclick', function(event) {
     })
   );
 });
+	`
+
+	w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+	w.Header().Set("Access-Control-Allow-Origin", "*") 
+
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+
+	w.Write([]byte(js))
+}

@@ -38,6 +38,7 @@ func main() {
 	mux.HandleFunc("GET /api/vapid-public-key", service.VapidPublicKeyHandler)
 	mux.HandleFunc("GET /manifest.json", service.ManifestHandler)
 	mux.HandleFunc("GET /manifest.webmanifest", service.ManifestHandler)
+	mux.HandleFunc("GET /sw.js", service.ServiceWorkerHandler)
 	
 	mux.HandleFunc("GET /console/admin/{admin_console_address}", func(w http.ResponseWriter, r *http.Request) {
 		middleware.SameSiteOnlyMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

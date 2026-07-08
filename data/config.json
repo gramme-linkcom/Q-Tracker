@@ -1,0 +1,17 @@
+{
+    "page_title": "Q-Tracker",
+    "room_name": "Room",
+    "time_required": 5,
+    "time_required_range_min": 1,
+    "time_required_range_max": 10,
+    "serve_start_time": "09:00",
+    "serve_end_time": "23:59",
+    "infomation": "",
+    "call_in_advice_message": "まもなくご案内いたします。\u003cbr /\u003eアトラクションの手前までお進みください。",
+    "message_available": "現在、すぐにご案内できます。",
+    "message_normal_delay": "現在、ご案内までに多少お時間がかかります。",
+    "message_heavy_delay": "現在、ご案内までに大幅にお時間がかかります。",
+    "is_service_available": true,
+    "is_booking_available": true,
+    "admin_console_address": "62d1420d-4ed8-4b9d-9354-8de319a92e98"
+}
