@@ -11,6 +11,6 @@ services:
       - PUSH_PRIVATE_KEY=
       - PUSH_PUBLIC_KEY=
       - SUBSCRIBER=
-      - ADMIN_CONSOLE_PSW=1 #admin console password here
+      - ADMIN_CONSOLE_PSW= #admin console password here
     container_name: q_tracker
     restart: unless-stopped

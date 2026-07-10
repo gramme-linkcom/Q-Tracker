@@ -27,4 +27,7 @@ type Config struct {
 
 	// adminコンソールの入口ランダム化
 	AdminConsoleAddress	string	`json:"admin_console_address"`
+
+	SlotInterval        int     `json:"slot_interval"`          // 予約枠の間隔 (分)
+	MaxBookingsPerSlot  int     `json:"max_bookings_per_slot"`  // 1枠あたりの最大予約数
 }

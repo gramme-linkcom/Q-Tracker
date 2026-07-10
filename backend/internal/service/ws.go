@@ -20,8 +20,9 @@ type BroadcastDatas struct {
 }
 
 type AdminActionPacket struct {
-	Action string `json:"action"`
-	Number int    `json:"number"`
+	Action       string `json:"action"`
+	Number       int    `json:"number"`
+	ReservedTime string `json:"reserved_time"`
 }
 
 var ActiveAdminConn *websocket.Conn
@@ -349,13 +350,17 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 					_ = conn.WriteJSON(payload)
 					continue
 				}
-				bookingData, err := repository.CreateUserTicket(env.DB, "", "")
+				reservedTime := actionData.ReservedTime
+				if reservedTime == "" {
+					reservedTime = GetCurrentTimeSlot()
+				}
+				bookingData, err := repository.CreateUserTicket(env.DB, "", reservedTime)
 				if err != nil {
 					log.Printf("[ERROR] 整理券の発行失敗: %v", err)
 					continue
 				}
 
-				log.Printf("[INFO] 整理券を発行(発行者: 管理者): 番号=%d", bookingData.TicketNumber)
+				log.Printf("[INFO] 整理券を発行(発行者: 管理者): 番号=%d (指定枠: %s)", bookingData.TicketNumber, reservedTime)
 				tickets, err := repository.GetWaitingTickets(env.DB)
 				if err == nil {
 					var queueData []interface{}
@@ -420,6 +425,8 @@ func (env *APIEnv) sendInitialState(conn *websocket.Conn) {
 			"infomation":              cfg.Infomation,
 			"is_booking_available":   cfg.IsBookingAvailable,
 			"admin_console_address":  cfg.AdminConsoleAddress,
+			"slot_interval":           cfg.SlotInterval,
+			"max_bookings_per_slot":   cfg.MaxBookingsPerSlot,
 		},
 	}
 

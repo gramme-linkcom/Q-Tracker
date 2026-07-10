@@ -209,7 +209,7 @@
                                             {{if .ReservedTime}}
                                                 <span class="badge bg-secondary bg-opacity-20 text-white border border-secondary border-opacity-30 fs-6 ms-2">{{.ReservedTime}}</span>
                                             {{else}}
-                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 fs-6 ms-2">当日直接</span>
+                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 fs-6 ms-2">時間指定なし</span>
                                             {{end}}
                                         </td>
                                         <td class="text-end">
@@ -282,21 +282,32 @@
                     <div class="row g-3 mb-3">
                         <div class="col-6">
                             <label for="time_required_range_min" class="form-label">範囲最小値 (min)</label>
-                            <input type="number" class="form-control" id="time_required_range_min" name="time_required_range_min" value="{{.Config.TimeRequiredRangeMin}}">
+                            <input type="number" class="form-control" id="time_required_range_min" name="time_required_range_min" value="{{.Config.TimeRequiredRangeMin}}" form="configForm">
                         </div>
                         <div class="col-6">
                             <label for="time_required_range_max" class="form-label">範囲最大値 (max)</label>
-                            <input type="number" class="form-control" id="time_required_range_max" name="time_required_range_max" value="{{.Config.TimeRequiredRangeMax}}">
+                            <input type="number" class="form-control" id="time_required_range_max" name="time_required_range_max" value="{{.Config.TimeRequiredRangeMax}}" form="configForm">
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label for="serve_start_time" class="form-label">稼働開始</label>
-                        <input type="time" class="form-control" id="serve_start_time" name="serve_start_time" value="{{.Config.ServeStartTime}}">
+                        <input type="time" class="form-control" id="serve_start_time" name="serve_start_time" value="{{.Config.ServeStartTime}}" form="configForm">
                     </div>
                     <div class="mb-3">
                         <label for="serve_end_time" class="form-label">稼働終了</label>
-                        <input type="time" class="form-control" id="serve_end_time" name="serve_end_time" value="{{.Config.ServeEndTime}}">
+                        <input type="time" class="form-control" id="serve_end_time" name="serve_end_time" value="{{.Config.ServeEndTime}}" form="configForm">
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label for="slot_interval" class="form-label">時間の粒度/間隔 (分)</label>
+                            <input type="number" class="form-control" id="slot_interval" name="slot_interval" value="{{.Config.SlotInterval}}" form="configForm">
+                        </div>
+                        <div class="col-6">
+                            <label for="max_bookings_per_slot" class="form-label">最大予約枠数 (組/枠)</label>
+                            <input type="number" class="form-control" id="max_bookings_per_slot" name="max_bookings_per_slot" value="{{.Config.MaxBookingsPerSlot}}" form="configForm">
+                        </div>
                     </div>
 
                     <hr class="border-secondary border-opacity-30 my-4">
@@ -388,12 +399,24 @@
     </div>
 
     <div class="modal fade" id="manualIssueConfirmModal" tabindex="-1" aria-labelledby="manualIssueConfirmModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content text-light border-primary border-opacity-30" style="background-color: #1a1b20 !important;">
-                <div class="modal-body p-4 text-center">
-                    <i class="bi bi-plus-circle text-primary fs-1 mb-3 d-block"></i>
-                    <h5 class="fw-bold mb-2">手動発券の確認</h5>
-                    <p class="text-muted-custom small mb-4">窓口で新しい整理券を1枚、手動で新規発行しますか？<br>（スマホを持っていないお客様向けの機能です）</p>
+                <div class="modal-header border-secondary border-opacity-30">
+                    <h5 class="modal-title fw-bold" id="manualIssueConfirmModalLabel">
+                        <i class="bi bi-plus-circle text-primary me-2"></i>手動発券
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted-custom small mb-4">窓口での手動発券を行います。お客様の希望する案内時間帯を選択してください。<br>（スマホを持っていないお客様向けの機能です）</p>
+                    
+                    <div class="mb-4">
+                        <label for="manual_issue_reserved_time" class="form-label fw-bold">希望のご案内時間帯</label>
+                        <select id="manual_issue_reserved_time" class="form-select bg-dark text-light border-secondary">
+                            <!-- JSで動的に選択肢を挿入 -->
+                        </select>
+                    </div>
+
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-outline-light flex-grow-1 py-2" data-bs-dismiss="modal">キャンセル</button>
                         <button type="button" class="btn btn-primary flex-grow-1 py-2 fw-bold" id="btn-modal-issue-confirm">発券を実行</button>
@@ -553,9 +576,13 @@
 
             if (latestFullQueue && queueLength > 0) {
                 latestFullQueue.forEach(group => {
+                    const isNoTime = group.reserved_time && group.reserved_time.includes("無指定");
+                    const badgeClass = isNoTime 
+                        ? "badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 fs-6 ms-2" 
+                        : "badge bg-secondary bg-opacity-20 text-white border border-secondary border-opacity-30 fs-6 ms-2";
                     const timeBadge = group.reserved_time 
-                        ? `<span class="badge bg-secondary bg-opacity-20 text-white border border-secondary border-opacity-30 fs-6 ms-2">${group.reserved_time}</span>`
-                        : `<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 fs-6 ms-2">当日直接</span>`;
+                        ? `<span class="${badgeClass}">${group.reserved_time}</span>`
+                        : `<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 fs-6 ms-2">時間指定なし</span>`;
                     const row = `<tr>
                         <td class="fw-bold text-white" style="font-size: 1.2rem;">${group.number}番${timeBadge}</td>
                         <td class="text-end">
@@ -598,6 +625,40 @@
             };
         }
 
+        function generateSlots(startTime, endTime, interval) {
+            const list = [];
+            try {
+                const [startH, startM] = startTime.split(":").map(Number);
+                const [endH, endM] = endTime.split(":").map(Number);
+                
+                let currentHour = startH;
+                let currentMin = startM;
+                
+                const targetEndMinutes = endH * 60 + endM;
+                
+                while (true) {
+                    const nextMin = (currentMin + interval) % 60;
+                    const nextHour = currentHour + Math.floor((currentMin + interval) / 60);
+                    
+                    const currentTotal = currentHour * 60 + currentMin;
+                    const nextTotal = nextHour * 60 + nextMin;
+                    
+                    if (nextTotal > targetEndMinutes) {
+                        break;
+                    }
+                    
+                    const pad = (num) => String(num).padStart(2, '0');
+                    list.push(`${pad(currentHour)}:${pad(currentMin)} - ${pad(nextHour)}:${pad(nextMin)}`);
+                    
+                    currentHour = nextHour;
+                    currentMin = nextMin;
+                }
+            } catch (e) {
+                console.error("Failed to generate slots:", e);
+            }
+            return list;
+        }
+
         function openManualIssueModal() {
             const isServiceAvailable = document.getElementById('switch_service_available').checked;
             const isBookingAvailable = document.getElementById('switch_booking_available').checked;
@@ -614,12 +675,50 @@
                 return;
             }
 
+            // Calculate slots dynamically
+            const startTime = document.getElementById('serve_start_time').value || "09:00";
+            const endTime = document.getElementById('serve_end_time').value || "17:00";
+            const interval = parseInt(document.getElementById('slot_interval').value) || 30;
+            const maxBookings = parseInt(document.getElementById('max_bookings_per_slot').value) || 5;
+
+            const slots = generateSlots(startTime, endTime, interval);
+
+            // Count bookings for each slot
+            const slotCounts = {};
+            if (latestFullQueue) {
+                latestFullQueue.forEach(group => {
+                    if (group.reserved_time) {
+                        slotCounts[group.reserved_time] = (slotCounts[group.reserved_time] || 0) + 1;
+                    }
+                });
+            }
+
+            const select = document.getElementById('manual_issue_reserved_time');
+            select.innerHTML = '<option value="">時間指定なし（順番待ち）</option>';
+
+            slots.forEach(slot => {
+                const booked = slotCounts[slot] || 0;
+                const remaining = maxBookings - booked;
+                let label = slot;
+                if (remaining <= 0) {
+                    label = `${slot} (満員 - 現在 ${booked}組)`;
+                } else {
+                    label = `${slot} (あと ${remaining}枠 / 現在 ${booked}組)`;
+                }
+                
+                const opt = document.createElement('option');
+                opt.value = slot;
+                opt.innerText = label;
+                select.appendChild(opt);
+            });
+
             const issueModal = new bootstrap.Modal(document.getElementById('manualIssueConfirmModal'));
             issueModal.show();
 
             document.getElementById('btn-modal-issue-confirm').onclick = function() {
+                const selectedTime = document.getElementById('manual_issue_reserved_time').value;
                 issueModal.hide();
-                controlQueue('issue_manual_ticket');
+                controlQueue('issue_manual_ticket', null, selectedTime);
             };
         }
 
@@ -712,7 +811,9 @@
                 is_service_available: document.getElementById('switch_service_available').checked,
                 // 🔥 Goサーバー側のJSONタグに完全マッピング
                 call_in_advance_message: advMessage,
-                call_current_message: curMessage
+                call_current_message: curMessage,
+                slot_interval: parseInt(formData.get('slot_interval')) || 30,
+                max_bookings_per_slot: parseInt(formData.get('max_bookings_per_slot')) || 5
             };
 
             ws.send(JSON.stringify(payload));
@@ -728,7 +829,7 @@
             submitConfig({ preventDefault: () => {} }); 
         }
 
-        function controlQueue(action, ticketNumber = null) { 
+        function controlQueue(action, ticketNumber = null, reservedTime = "") { 
             let actionName = "更新しました";
             const btnEnter = document.getElementById('btn-group-enter');
             const btnExit = document.getElementById('btn-group-exit');
@@ -768,12 +869,15 @@
             }
             if(action === 'cancel_ticket') actionName = `整理券 ${ticketNumber}番 をキャンセルしました`;
             if(action === 'absent_ticket') actionName = `整理券 ${ticketNumber}番 を不在のため削除しました`;
-            if(action === 'issue_manual_ticket') actionName = "整理券を手動で新規発行しました";
+            if(action === 'issue_manual_ticket') {
+                actionName = `手動整理券を新規発行しました (${reservedTime ? reservedTime : '時間指定なし'})`;
+            }
             
             if (ws && ws.readyState === WebSocket.OPEN) {
                 const payload = {
                     action: action,
-                    number: ticketNumber
+                    number: ticketNumber,
+                    reserved_time: reservedTime
                 };
                 ws.send(JSON.stringify(payload));
                 console.log('[WS] 進行操作をサーバーへ送信しました:', payload);

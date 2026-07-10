@@ -2,11 +2,13 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"kfqt_backend/internal/model"
 	"kfqt_backend/internal/repository"
 	"kfqt_backend/internal/system"
 	"log"
 	"net/http"
+	"time"
 )
 
 func (env *APIEnv) BookTicketHandler(w http.ResponseWriter, r *http.Request) {
@@ -30,17 +32,24 @@ func (env *APIEnv) BookTicketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 指定された時間枠の予約上限チェック（例: 各枠5グループまで。時間指定なしの場合は制限なし）
-	if req.ReservedTime != "" {
+	reservedTime := req.ReservedTime
+	if reservedTime == "" {
+		reservedTime = GetCurrentTimeSlot()
+	} else {
+		// 指定された時間枠の予約上限チェック（時間指定なしの場合は制限なし）
 		var count int
-		err := env.DB.QueryRow("SELECT COUNT(*) FROM tickets WHERE reserved_time = ? AND status IN ('waiting', 'serving')", req.ReservedTime).Scan(&count)
-		if err == nil && count >= 5 {
+		err := env.DB.QueryRow("SELECT COUNT(*) FROM tickets WHERE reserved_time = ? AND status IN ('waiting', 'serving')", reservedTime).Scan(&count)
+		maxBookings := cfg.MaxBookingsPerSlot
+		if maxBookings <= 0 {
+			maxBookings = 5 // 安全フォールバック
+		}
+		if err == nil && count >= maxBookings {
 			http.Error(w, `{"error": "指定された時間帯は予約上限に達しています"}`, http.StatusBadRequest)
 			return
 		}
 	}
 
-	bookingData, err := repository.CreateUserTicket(env.DB, req.PushToken, req.ReservedTime)
+	bookingData, err := repository.CreateUserTicket(env.DB, req.PushToken, reservedTime)
 	if err != nil {
 		log.Printf("[ERROR] 整理券の発行失敗: %v", err)
 		http.Error(w, `{"error": "Server error"}`, http.StatusInternalServerError)
@@ -71,4 +80,32 @@ func (env *APIEnv) BookTicketHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated) // 201 Created
 	json.NewEncoder(w).Encode(response)
+}
+
+func GetCurrentTimeSlot() string {
+	cfg := system.ReadConfig()
+	interval := cfg.SlotInterval
+	if interval <= 0 {
+		interval = 30 // 安全フォールバック
+	}
+
+	jst, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		jst = time.UTC
+	}
+	now := time.Now().In(jst)
+	
+	// 総経過時間（分単位）で計算する
+	currentTotalMinutes := now.Hour()*60 + now.Minute()
+	
+	startTotalMinutes := (currentTotalMinutes / interval) * interval
+	endTotalMinutes := startTotalMinutes + interval
+	
+	startHour := (startTotalMinutes / 60) % 24
+	startMin := startTotalMinutes % 60
+	
+	endHour := (endTotalMinutes / 60) % 24
+	endMin := endTotalMinutes % 60
+	
+	return fmt.Sprintf("%02d:%02d - %02d:%02d (無指定)", startHour, startMin, endHour, endMin)
 }

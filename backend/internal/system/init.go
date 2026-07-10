@@ -43,6 +43,8 @@ func createConfig() {
 		IsServiceAvailable:		false,
 		IsBookingAvailable:		false,
 		AdminConsoleAddress:	uuidStr,
+		SlotInterval:           30,
+		MaxBookingsPerSlot:     5,
 	}
 
 	jsonData, err := json.MarshalIndent(defaultConfig, "", "  ")

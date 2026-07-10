@@ -12,6 +12,11 @@ export interface QueueStatus {
   noticeMessage: string;
   infoMessage?: string;
   reservedTime?: string; // 指定された予約時間
+  serveStartTime?: string; // 稼働開始時間 (HH:MM)
+  serveEndTime?: string;   // 稼働終了時間 (HH:MM)
+  slotInterval?: number;   // 予約枠の粒度 (分)
+  maxBookingsPerSlot?: number; // 1枠あたりの最大予約数
+  slotBookings?: Record<string, number>; // 各時間枠の現在の予約数
 }
 
 export async function getPublicVapidKey() {

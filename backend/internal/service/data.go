@@ -107,7 +107,21 @@ func (env *APIEnv) GetStatusHandler(w http.ResponseWriter, r *http.Request) {
 		isServiceAvailable = IsWithinServeTime(config.ServeStartTime, config.ServeEndTime)
 	}
 
-	// 3. レスポンスデータを組み立てて送出
+	// 3. 各時間枠の現在の予約者数を集計
+	slotBookings := make(map[string]int)
+	rows, err := env.DB.Query("SELECT reserved_time, COUNT(*) FROM tickets WHERE status IN ('waiting', 'serving') AND reserved_time != '' GROUP BY reserved_time")
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var slot string
+			var count int
+			if err := rows.Scan(&slot, &count); err == nil {
+				slotBookings[slot] = count
+			}
+		}
+	}
+
+	// 4. レスポンスデータを組み立てて送出
 	reservedTime := ""
 	if myNumberStr != "" && myNumberStr != "0" {
 		_ = env.DB.QueryRow("SELECT COALESCE(reserved_time, '') FROM tickets WHERE number = ?", myNumberStr).Scan(&reservedTime)
@@ -126,6 +140,11 @@ func (env *APIEnv) GetStatusHandler(w http.ResponseWriter, r *http.Request) {
 		NoticeMessage: noticeMessage,
 		InfoMessage:   config.Infomation,
 		ReservedTime:  reservedTime,
+		ServeStartTime: config.ServeStartTime,
+		ServeEndTime:   config.ServeEndTime,
+		SlotInterval:   config.SlotInterval,
+		MaxBookingsPerSlot: config.MaxBookingsPerSlot,
+		SlotBookings:   slotBookings,
 	}
 
 	json.NewEncoder(w).Encode(response)

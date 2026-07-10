@@ -7,11 +7,71 @@ interface BookingModalProps {
   onClose: () => void;     // 閉じるボタンが押された時の関数
   onConfirm: (reservedTime: string) => void;   // 確定ボタンが押された時の関数
   isPending: boolean;
+  serveStartTime: string;  // 稼働開始時間 (HH:MM)
+  serveEndTime: string;    // 稼働終了時間 (HH:MM)
+  slotInterval: number;    // 予約枠の粒度 (分)
+  maxBookingsPerSlot: number; // 1枠あたりの最大予約数
+  slotBookings: Record<string, number>; // 各時間枠の現在の予約数
 }
 
-export default function BookingModal({ isOpen, onClose, onConfirm, isPending }: BookingModalProps) {
+export default function BookingModal({ isOpen, onClose, onConfirm, isPending, serveStartTime, serveEndTime, slotInterval, maxBookingsPerSlot, slotBookings }: BookingModalProps) {
   const [step, setStep] = useState("input");
   const [reservedTime, setReservedTime] = useState("");
+
+  const slots = React.useMemo(() => {
+    const list: string[] = [];
+    try {
+      const [startH, startM] = serveStartTime.split(":").map(Number);
+      const [endH, endM] = serveEndTime.split(":").map(Number);
+      
+      let currentHour = startH;
+      let currentMin = startM;
+      
+      const targetEndMinutes = endH * 60 + endM;
+      
+      while (true) {
+        const nextMin = (currentMin + slotInterval) % 60;
+        const nextHour = currentHour + Math.floor((currentMin + slotInterval) / 60);
+        
+        const currentTotal = currentHour * 60 + currentMin;
+        const nextTotal = nextHour * 60 + nextMin;
+        
+        if (nextTotal > targetEndMinutes) {
+          break;
+        }
+        
+        const pad = (num: number) => String(num).padStart(2, '0');
+        list.push(`${pad(currentHour)}:${pad(currentMin)} - ${pad(nextHour)}:${pad(nextMin)}`);
+        
+        currentHour = nextHour;
+        currentMin = nextMin;
+      }
+    } catch (e) {
+      console.error("Failed to generate slots:", e);
+    }
+    return list;
+  }, [serveStartTime, serveEndTime, slotInterval]);
+
+  const isSlotPast = (slot: string): boolean => {
+    if (!slot) return false;
+    try {
+      const parts = slot.split(" - ");
+      if (parts.length < 2) return false;
+      const startTimeStr = parts[0];
+      const [startHours, startMinutes] = startTimeStr.split(":").map(Number);
+      
+      const now = new Date();
+      const currentHours = now.getHours();
+      const currentMinutes = now.getMinutes();
+      
+      if (currentHours > startHours || (currentHours === startHours && currentMinutes >= startMinutes)) {
+        return true;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return false;
+  };
 
   return (
     <div className={`modal modal-bottom sm:modal-middle transition-all duration-300 ${isOpen ? 'modal-open pointer-events-auto' : 'pointer-events-none'}`}>
@@ -58,23 +118,31 @@ export default function BookingModal({ isOpen, onClose, onConfirm, isPending }: 
             disabled={isPending}
             className="w-full bg-[#1e1e22] text-zinc-100 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-hidden focus:ring-1 focus:ring-cyan-400 transition-all select-none"
           >
-            <option value="">当日直接（順番待ち）</option>
-            <option value="09:00 - 09:30">09:00 - 09:30</option>
-            <option value="09:30 - 10:00">09:30 - 10:00</option>
-            <option value="10:00 - 10:30">10:00 - 10:30</option>
-            <option value="10:30 - 11:00">10:30 - 11:00</option>
-            <option value="11:00 - 11:30">11:00 - 11:30</option>
-            <option value="11:30 - 12:00">11:30 - 12:00</option>
-            <option value="12:00 - 12:30">12:00 - 12:30</option>
-            <option value="12:30 - 13:00">12:30 - 13:00</option>
-            <option value="13:00 - 13:30">13:00 - 13:30</option>
-            <option value="13:30 - 14:00">13:30 - 14:00</option>
-            <option value="14:00 - 14:30">14:00 - 14:30</option>
-            <option value="14:30 - 15:00">14:30 - 15:00</option>
-            <option value="15:00 - 15:30">15:00 - 15:30</option>
-            <option value="15:30 - 16:00">15:30 - 16:00</option>
-            <option value="16:00 - 16:30">16:00 - 16:30</option>
-            <option value="16:30 - 17:00">16:30 - 17:00</option>
+            <option value="">時間指定なし（順番待ち）</option>
+            {slots.map((slot) => {
+              const past = isSlotPast(slot);
+              const bookedCount = slotBookings[slot] || 0;
+              const remaining = maxBookingsPerSlot - bookedCount;
+              const isFull = remaining <= 0;
+
+              let label = slot;
+              let isDisabled = past;
+
+              if (past) {
+                label = `${slot} (受付終了)`;
+              } else if (isFull) {
+                label = `${slot} (満員)`;
+                isDisabled = true;
+              } else {
+                label = `${slot} (あと ${remaining} 枠)`;
+              }
+
+              return (
+                <option key={slot} value={slot} disabled={isDisabled}>
+                  {label}
+                </option>
+              );
+            })}
           </select>
         </div>
 

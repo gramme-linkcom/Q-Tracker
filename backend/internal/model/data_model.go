@@ -14,6 +14,11 @@ type UserQueueResponse struct {
 	NoticeMessage      string `json:"noticeMessage"` // 自動計算の混雑目安
 	InfoMessage        string `json:"infoMessage"`   // configから読み込んだ運営の手動メッセージ
 	ReservedTime       string `json:"reservedTime"`  // 指定された予約時間
+	ServeStartTime     string `json:"serveStartTime"` // 稼働開始時間 (HH:MM)
+	ServeEndTime       string         `json:"serveEndTime"`   // 稼働終了時間 (HH:MM)
+	SlotInterval       int            `json:"slotInterval"`   // 枠の粒度 (分)
+	MaxBookingsPerSlot int            `json:"maxBookingsPerSlot"` // 1枠あたりの最大予約数
+	SlotBookings       map[string]int `json:"slotBookings"`       // 時間枠ごとの現在の予約数
 }
 
 // 管理者コンソール（WebSocket）用のフルデータレスポンス

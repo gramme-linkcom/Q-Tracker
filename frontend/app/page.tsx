@@ -29,6 +29,11 @@ export default function Home() {
   const [remainGroups, setRemainGroups] = useState<number>(0)
   const [timeRequired, setTimeRequired] = useState<number>(0);
   const [reservedTime, setReservedTime] = useState<string>("");
+  const [serveStartTime, setServeStartTime] = useState<string>("09:00");
+  const [serveEndTime, setServeEndTime] = useState<string>("17:00");
+  const [slotInterval, setSlotInterval] = useState<number>(30);
+  const [maxBookingsPerSlot, setMaxBookingsPerSlot] = useState<number>(5);
+  const [slotBookings, setSlotBookings] = useState<Record<string, number>>({});
 
   const [isBooked, setIsBooked] = useState<boolean>(false);
   
@@ -90,6 +95,21 @@ export default function Home() {
       setRemainGroups(data.myAheadGroups ?? 0);
       if (data.reservedTime !== undefined) {
         setReservedTime(data.reservedTime);
+      }
+      if (data.serveStartTime !== undefined) {
+        setServeStartTime(data.serveStartTime);
+      }
+      if (data.serveEndTime !== undefined) {
+        setServeEndTime(data.serveEndTime);
+      }
+      if (data.slotInterval !== undefined) {
+        setSlotInterval(data.slotInterval);
+      }
+      if (data.maxBookingsPerSlot !== undefined) {
+        setMaxBookingsPerSlot(data.maxBookingsPerSlot);
+      }
+      if (data.slotBookings !== undefined) {
+        setSlotBookings(data.slotBookings);
       }
     } catch (error) {
       console.error(error);
@@ -405,6 +425,11 @@ const confirmCancelBooking = async () => {
           onClose={() => setIsModalOpen(false)}
           onConfirm={confirmBooking}
           isPending={isBookingInProgress}
+          serveStartTime={serveStartTime}
+          serveEndTime={serveEndTime}
+          slotInterval={slotInterval}
+          maxBookingsPerSlot={maxBookingsPerSlot}
+          slotBookings={slotBookings}
         />
         <BookingCancelModal
           isOpen={isCancelModalOpen}
