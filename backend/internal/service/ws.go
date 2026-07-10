@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"kfqt_backend/internal/model"
 	"kfqt_backend/internal/repository"
@@ -95,10 +96,24 @@ func (env *APIEnv) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 
 		cookie, err := r.Cookie("admin_session")
 		if err == nil {
-			sessionMu.Lock()
-			delete(adminSessions, cookie.Value)
-			log.Printf("[WS_DISCONNECT] セッション %s を名簿から削除し、ロックを解放しました\n", cookie.Value[:8])
-			sessionMu.Unlock()
+			sessionID := cookie.Value
+			// 10秒間の再接続猶予期間（グレースピリオド）を開始
+			go func(sid string) {
+				time.Sleep(10 * time.Second)
+				
+				ConnMu.Lock()
+				defer ConnMu.Unlock()
+				
+				// 10秒後、ActiveAdminConnが空（再接続されていない）ならセッションを削除する
+				if ActiveAdminConn == nil {
+					sessionMu.Lock()
+					delete(adminSessions, sid)
+					log.Printf("[WS_DISCONNECT] 10秒間再接続がなかったため、セッション %s を破棄しました\n", sid[:8])
+					sessionMu.Unlock()
+				} else {
+					log.Printf("[WS_DISCONNECT] 再接続が確認されたため、セッション %s の破棄をキャンセルしました\n", sid[:8])
+				}
+			}(sessionID)
 		}
 	}()
 
