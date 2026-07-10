@@ -141,6 +141,13 @@
                         </div>
 
                         <div class="form-check form-switch p-3 bg-secondary bg-opacity-10 rounded mb-3 d-flex justify-content-between align-items-center fs-5">
+                            <label class="form-check-label ms-0" for="switch_allow_no_time_slot" id="label_allow_no_time_slot" style="color: #ffffff;">
+                                {{if .Config.AllowNoTimeSlot}}時間指定なし発券: 許可{{else}}時間指定なし発券: 制限中{{end}}
+                            </label>
+                            <input class="form-check-input m-0" type="checkbox" role="switch" id="switch_allow_no_time_slot" {{if .Config.AllowNoTimeSlot}}checked{{end}} onchange="triggerConfigUpdate()">
+                        </div>
+
+                        <div class="form-check form-switch p-3 bg-secondary bg-opacity-10 rounded mb-3 d-flex justify-content-between align-items-center fs-5">
                             <label class="form-check-label ms-0" for="switch_booking_available" id="label_booking_status" style="color: #ffffff;">
                                 {{if .Config.IsBookingAvailable}}発券受付中{{else}}発券停止中{{end}}
                             </label>
@@ -813,7 +820,8 @@
                 call_in_advance_message: advMessage,
                 call_current_message: curMessage,
                 slot_interval: parseInt(formData.get('slot_interval')) || 30,
-                max_bookings_per_slot: parseInt(formData.get('max_bookings_per_slot')) || 5
+                max_bookings_per_slot: parseInt(formData.get('max_bookings_per_slot')) || 5,
+                allow_no_time_slot: document.getElementById('switch_allow_no_time_slot').checked
             };
 
             ws.send(JSON.stringify(payload));
@@ -822,6 +830,8 @@
         }
 
         function triggerConfigUpdate() { 
+            const isAllowNoTimeSlotChecked = document.getElementById('switch_allow_no_time_slot').checked;
+            document.getElementById('label_allow_no_time_slot').innerText = isAllowNoTimeSlotChecked ? "時間指定なし発券: 許可" : "時間指定なし発券: 制限中";
             const isChecked = document.getElementById('switch_booking_available').checked;
             document.getElementById('label_booking_status').innerText = isChecked ? "発券受付中" : "発券停止中";
             const isServiceChecked = document.getElementById('switch_service_available').checked;

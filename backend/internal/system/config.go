@@ -52,6 +52,7 @@ func SaveConfig(newConfigData model.Config) (error){
 	config.CallInAdvanceMessage		= newConfigData.CallInAdvanceMessage
 	config.SlotInterval             = newConfigData.SlotInterval
 	config.MaxBookingsPerSlot       = newConfigData.MaxBookingsPerSlot
+	config.AllowNoTimeSlot          = newConfigData.AllowNoTimeSlot
 
 
 	updatedBytes, err := json.MarshalIndent(config, "", "    ")

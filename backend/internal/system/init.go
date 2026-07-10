@@ -45,6 +45,7 @@ func createConfig() {
 		AdminConsoleAddress:	uuidStr,
 		SlotInterval:           30,
 		MaxBookingsPerSlot:     5,
+		AllowNoTimeSlot:        true,
 	}
 
 	jsonData, err := json.MarshalIndent(defaultConfig, "", "  ")

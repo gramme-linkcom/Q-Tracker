@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"kfqt_backend/internal/model"
@@ -8,6 +9,7 @@ import (
 	"kfqt_backend/internal/system"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -34,19 +36,28 @@ func (env *APIEnv) BookTicketHandler(w http.ResponseWriter, r *http.Request) {
 
 	reservedTime := req.ReservedTime
 	if reservedTime == "" {
-		reservedTime = GetCurrentTimeSlot()
-	} else {
-		// 指定された時間枠の予約上限チェック（時間指定なしの場合は制限なし）
-		var count int
-		err := env.DB.QueryRow("SELECT COUNT(*) FROM tickets WHERE reserved_time = ? AND status IN ('waiting', 'serving')", reservedTime).Scan(&count)
-		maxBookings := cfg.MaxBookingsPerSlot
-		if maxBookings <= 0 {
-			maxBookings = 5 // 安全フォールバック
-		}
-		if err == nil && count >= maxBookings {
-			http.Error(w, `{"error": "指定された時間帯は予約上限に達しています"}`, http.StatusBadRequest)
+		if !cfg.AllowNoTimeSlot {
+			http.Error(w, `{"error": "ただいま時間指定なしでの整理券発行を停止しております。お手数ですが、ドロップダウンより時間枠をご指定ください。"}`, http.StatusBadRequest)
 			return
 		}
+		reservedTime = GetCurrentTimeSlot()
+	} else {
+		// 指定された時間枠が過去の枠（またはすでに開始している枠）でないかチェック
+		if IsSlotPast(reservedTime) {
+			http.Error(w, `{"error": "指定された時間帯はすでに受付を終了しています"}`, http.StatusBadRequest)
+			return
+		}
+	}
+
+	// 時間帯の予約上限チェック（時間指定あり・なし両方で、優先枠と当日枠の合算値を確認）
+	count, err := GetSlotBookingCount(env.DB, reservedTime)
+	maxBookings := cfg.MaxBookingsPerSlot
+	if maxBookings <= 0 {
+		maxBookings = 5 // 安全フォールバック
+	}
+	if err == nil && count >= maxBookings {
+		http.Error(w, `{"error": "指定された時間帯は予約上限に達しています"}`, http.StatusBadRequest)
+		return
 	}
 
 	bookingData, err := repository.CreateUserTicket(env.DB, req.PushToken, reservedTime)
@@ -108,4 +119,38 @@ func GetCurrentTimeSlot() string {
 	endMin := endTotalMinutes % 60
 	
 	return fmt.Sprintf("%02d:%02d - %02d:%02d (無指定)", startHour, startMin, endHour, endMin)
+}
+
+func IsSlotPast(slot string) bool {
+	if slot == "" {
+		return false
+	}
+	parts := strings.Split(slot, " - ")
+	if len(parts) < 2 {
+		return false
+	}
+	startTimeStr := parts[0]
+
+	jst, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		jst = time.UTC
+	}
+	now := time.Now().In(jst)
+	todayStr := now.Format("2006-01-02 ")
+
+	parsedStart, err := time.ParseInLocation("2006-01-02 15:04", todayStr+startTimeStr, jst)
+	if err != nil {
+		return false
+	}
+
+	return now.After(parsedStart) || now.Equal(parsedStart)
+}
+
+func GetSlotBookingCount(db *sql.DB, reservedTime string) (int, error) {
+	baseSlot := strings.Replace(reservedTime, " (無指定)", "", 1)
+	standbySlot := baseSlot + " (無指定)"
+
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM tickets WHERE (reserved_time = ? OR reserved_time = ?) AND status IN ('waiting', 'serving')", baseSlot, standbySlot).Scan(&count)
+	return count, err
 }

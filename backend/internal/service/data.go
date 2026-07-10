@@ -8,6 +8,7 @@ import (
 	"kfqt_backend/internal/system"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 	_ "time/tzdata"
 )
@@ -116,7 +117,8 @@ func (env *APIEnv) GetStatusHandler(w http.ResponseWriter, r *http.Request) {
 			var slot string
 			var count int
 			if err := rows.Scan(&slot, &count); err == nil {
-				slotBookings[slot] = count
+				baseSlot := strings.Replace(slot, " (無指定)", "", 1)
+				slotBookings[baseSlot] += count
 			}
 		}
 	}
@@ -145,6 +147,7 @@ func (env *APIEnv) GetStatusHandler(w http.ResponseWriter, r *http.Request) {
 		SlotInterval:   config.SlotInterval,
 		MaxBookingsPerSlot: config.MaxBookingsPerSlot,
 		SlotBookings:   slotBookings,
+		AllowNoTimeSlot: config.AllowNoTimeSlot,
 	}
 
 	json.NewEncoder(w).Encode(response)

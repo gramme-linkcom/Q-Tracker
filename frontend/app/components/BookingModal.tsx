@@ -12,9 +12,10 @@ interface BookingModalProps {
   slotInterval: number;    // 予約枠の粒度 (分)
   maxBookingsPerSlot: number; // 1枠あたりの最大予約数
   slotBookings: Record<string, number>; // 各時間枠の現在の予約数
+  allowNoTimeSlot: boolean; // 時間指定なしでの発券を許可するかどうか
 }
 
-export default function BookingModal({ isOpen, onClose, onConfirm, isPending, serveStartTime, serveEndTime, slotInterval, maxBookingsPerSlot, slotBookings }: BookingModalProps) {
+export default function BookingModal({ isOpen, onClose, onConfirm, isPending, serveStartTime, serveEndTime, slotInterval, maxBookingsPerSlot, slotBookings, allowNoTimeSlot }: BookingModalProps) {
   const [step, setStep] = useState("input");
   const [reservedTime, setReservedTime] = useState("");
 
@@ -93,19 +94,21 @@ export default function BookingModal({ isOpen, onClose, onConfirm, isPending, se
   const isConfirmDisabled = React.useMemo(() => {
     if (isPending) return true;
     if (reservedTime === "") {
-      return isAllSlotsPast;
+      return isAllSlotsPast || !allowNoTimeSlot;
     }
     const past = isSlotPast(reservedTime);
     const bookedCount = slotBookings[reservedTime] || 0;
     const remaining = maxBookingsPerSlot - bookedCount;
     const isFull = remaining <= 0;
     return past || isFull;
-  }, [reservedTime, isPending, isAllSlotsPast, slotBookings, maxBookingsPerSlot]);
+  }, [reservedTime, isPending, isAllSlotsPast, allowNoTimeSlot, slotBookings, maxBookingsPerSlot]);
 
   const confirmButtonText = React.useMemo(() => {
     if (isPending) return "発行中...";
     if (reservedTime === "") {
-      return isAllSlotsPast ? "受付終了" : "確定する";
+      if (isAllSlotsPast) return "受付終了";
+      if (!allowNoTimeSlot) return "時間指定必須";
+      return "確定する";
     }
     if (isSlotPast(reservedTime)) {
       return "受付終了";
@@ -116,7 +119,7 @@ export default function BookingModal({ isOpen, onClose, onConfirm, isPending, se
       return "満員";
     }
     return "確定する";
-  }, [isPending, reservedTime, isAllSlotsPast, slotBookings, maxBookingsPerSlot]);
+  }, [isPending, reservedTime, isAllSlotsPast, allowNoTimeSlot, slotBookings, maxBookingsPerSlot]);
 
   return (
     <div className={`modal modal-bottom sm:modal-middle transition-all duration-300 ${isOpen ? 'modal-open pointer-events-auto' : 'pointer-events-none'}`}>
@@ -163,8 +166,8 @@ export default function BookingModal({ isOpen, onClose, onConfirm, isPending, se
             disabled={isPending}
             className="w-full bg-[#1e1e22] text-zinc-100 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-hidden focus:ring-1 focus:ring-cyan-400 transition-all select-none"
           >
-            <option value="" disabled={isAllSlotsPast}>
-              時間指定なし（順番待ち）{isAllSlotsPast ? " (受付終了)" : ""}
+            <option value="" disabled={isAllSlotsPast || !allowNoTimeSlot}>
+              時間指定なし（順番待ち）{isAllSlotsPast ? " (受付終了)" : !allowNoTimeSlot ? " (受付停止中)" : ""}
             </option>
             {slots.map((slot) => {
               const past = isSlotPast(slot);

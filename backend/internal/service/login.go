@@ -159,6 +159,7 @@ func (env *APIEnv) AdminConsoleHandler(w http.ResponseWriter, r *http.Request) {
 		"CallCurrentMessage":	cfg.CallCurrentMessage,
 		"SlotInterval":         cfg.SlotInterval,
 		"MaxBookingsPerSlot":   cfg.MaxBookingsPerSlot,
+		"AllowNoTimeSlot":      cfg.AllowNoTimeSlot,
 	}
 
 	data := CombinedAdminData{

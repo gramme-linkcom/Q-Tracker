@@ -17,6 +17,7 @@ export interface QueueStatus {
   slotInterval?: number;   // 予約枠の粒度 (分)
   maxBookingsPerSlot?: number; // 1枠あたりの最大予約数
   slotBookings?: Record<string, number>; // 各時間枠の現在の予約数
+  allowNoTimeSlot?: boolean; // 時間指定なしでの発券を許可するかどうか
 }
 
 export async function getPublicVapidKey() {

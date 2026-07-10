@@ -19,6 +19,7 @@ type UserQueueResponse struct {
 	SlotInterval       int            `json:"slotInterval"`   // 枠の粒度 (分)
 	MaxBookingsPerSlot int            `json:"maxBookingsPerSlot"` // 1枠あたりの最大予約数
 	SlotBookings       map[string]int `json:"slotBookings"`       // 時間枠ごとの現在の予約数
+	AllowNoTimeSlot    bool            `json:"allowNoTimeSlot"`    // 時間指定なしでの発券を許可するかどうか
 }
 
 // 管理者コンソール（WebSocket）用のフルデータレスポンス

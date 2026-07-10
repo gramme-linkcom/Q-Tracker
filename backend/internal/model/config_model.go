@@ -30,4 +30,5 @@ type Config struct {
 
 	SlotInterval        int     `json:"slot_interval"`          // 予約枠の間隔 (分)
 	MaxBookingsPerSlot  int     `json:"max_bookings_per_slot"`  // 1枠あたりの最大予約数
+	AllowNoTimeSlot     bool    `json:"allow_no_time_slot"`     // 時間指定なしでの発券を許可するかどうか
 }

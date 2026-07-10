@@ -34,6 +34,7 @@ export default function Home() {
   const [slotInterval, setSlotInterval] = useState<number>(30);
   const [maxBookingsPerSlot, setMaxBookingsPerSlot] = useState<number>(5);
   const [slotBookings, setSlotBookings] = useState<Record<string, number>>({});
+  const [allowNoTimeSlot, setAllowNoTimeSlot] = useState<boolean>(true);
 
   const [isBooked, setIsBooked] = useState<boolean>(false);
   
@@ -110,6 +111,9 @@ export default function Home() {
       }
       if (data.slotBookings !== undefined) {
         setSlotBookings(data.slotBookings);
+      }
+      if (data.allowNoTimeSlot !== undefined) {
+        setAllowNoTimeSlot(data.allowNoTimeSlot);
       }
     } catch (error) {
       console.error(error);
@@ -431,6 +435,7 @@ const confirmCancelBooking = async () => {
           slotInterval={slotInterval}
           maxBookingsPerSlot={maxBookingsPerSlot}
           slotBookings={slotBookings}
+          allowNoTimeSlot={allowNoTimeSlot}
         />
         <BookingCancelModal
           isOpen={isCancelModalOpen}

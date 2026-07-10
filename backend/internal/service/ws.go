@@ -427,6 +427,7 @@ func (env *APIEnv) sendInitialState(conn *websocket.Conn) {
 			"admin_console_address":  cfg.AdminConsoleAddress,
 			"slot_interval":           cfg.SlotInterval,
 			"max_bookings_per_slot":   cfg.MaxBookingsPerSlot,
+			"allow_no_time_slot":      cfg.AllowNoTimeSlot,
 		},
 	}
 
